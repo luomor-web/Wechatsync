@@ -132,6 +132,10 @@ export function preprocessForPlatform(rawHtml: string, config: PreprocessConfig)
     compactHtml(container)
   }
 
+  if (config.convertTablesToText) {
+    convertTablesToText(container)
+  }
+
   // 清理空内容
   if (config.removeEmptyLines) {
     removeEmptyLines(container)
@@ -358,7 +362,21 @@ function isValidLineStructure(children: Element[]): boolean {
 
   // 检查是否全是同一类型的行容器标签
   if (LINE_CONTAINER_TAGS.has(firstTag)) {
-    return children.every(child => child.tagName === firstTag)
+    const allSameTag = children.every(child => child.tagName === firstTag)
+    if (!allSameTag) return false
+
+    // 如果元素之间存在有意义的文本节点，说明这是内联结构（如 GitHub 语法高亮），
+    // 而非每行一个元素的多行结构
+    const parent = children[0].parentElement
+    if (parent) {
+      for (const node of Array.from(parent.childNodes)) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+          return false
+        }
+      }
+    }
+
+    return true
   }
 
   // 检查是否全是 display:block 的元素（某些高亮库用自定义标签）
@@ -827,6 +845,76 @@ function removeNestedEmptyContainers(container: HTMLElement): void {
 
     if (removed === 0) break
   }
+}
+
+/**
+ * 将表格转换为文本格式
+ * 有表头时: 每行格式化为 "列名: 值 | 列名: 值"
+ * 无表头时: 每行用 " | " 分隔各列
+ */
+function convertTablesToText(container: HTMLElement): void {
+  const tables = container.querySelectorAll('table')
+
+  tables.forEach((table) => {
+    // 提取表头
+    const headers: string[] = []
+    const theadRow = table.querySelector('thead tr')
+    if (theadRow) {
+      theadRow.querySelectorAll('th, td').forEach((cell) => {
+        headers.push(cell.textContent?.trim() || '')
+      })
+    }
+
+    // 提取所有数据行
+    const rows: string[][] = []
+    const bodyRows = table.querySelectorAll('tbody tr, tr')
+    bodyRows.forEach((row) => {
+      // 跳过表头行
+      if (row.parentElement?.tagName === 'THEAD') return
+      // 如果没有 thead，第一行全是 th 也视为表头
+      const cells = row.querySelectorAll('td, th')
+      if (headers.length === 0 && row === bodyRows[0]) {
+        const allTh = Array.from(cells).every((c) => c.tagName === 'TH')
+        if (allTh) {
+          cells.forEach((cell) => headers.push(cell.textContent?.trim() || ''))
+          return
+        }
+      }
+
+      const rowData: string[] = []
+      cells.forEach((cell) => {
+        rowData.push(cell.textContent?.trim() || '')
+      })
+      if (rowData.length > 0) {
+        rows.push(rowData)
+      }
+    })
+
+    // 构建替换内容
+    const fragment = document.createDocumentFragment()
+
+    if (headers.length > 0) {
+      // 有表头: "列名: 值 | 列名: 值"
+      rows.forEach((row) => {
+        const parts = row.map((val, i) => {
+          const header = headers[i] || ''
+          return header ? `${header}: ${val}` : val
+        })
+        const p = document.createElement('p')
+        p.textContent = parts.join(' | ')
+        fragment.appendChild(p)
+      })
+    } else {
+      // 无表头: 直接用 " | " 分隔
+      rows.forEach((row) => {
+        const p = document.createElement('p')
+        p.textContent = row.join(' | ')
+        fragment.appendChild(p)
+      })
+    }
+
+    table.replaceWith(fragment)
+  })
 }
 
 /**
