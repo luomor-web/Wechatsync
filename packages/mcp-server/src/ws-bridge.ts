@@ -5,17 +5,12 @@
  * - 第一个实例启动 WebSocket 服务器 + HTTP API
  * - 后续实例通过 HTTP API 转发请求
  */
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-import wsModule from 'ws'
+import { WebSocketServer, WebSocket } from 'ws'
 import http from 'http'
 import type { RequestMessage, ResponseMessage } from './types.js'
 
-// 兼容 CJS 和 ESM 打包
-const WsModule = wsModule as any
-// ESM: WebSocketServer, CJS: Server
-const WebSocketServer = WsModule.WebSocketServer || WsModule.Server || WsModule.default?.WebSocketServer || WsModule.default?.Server
 // WebSocket 状态常量 (readyState: 1 = OPEN)
-const WS_OPEN = 1
+const WS_OPEN = WebSocket.OPEN
 
 export class ExtensionBridge {
   private wss: any = null
