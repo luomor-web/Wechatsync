@@ -152,9 +152,6 @@ importers:
         specifier: ^3.22.4
         version: 3.25.76
     devDependencies:
-      '@types/chrome':
-        specifier: ^0.0.254
-        version: 0.0.254
       '@types/remarkable':
         specifier: ^2.0.8
         version: 2.0.8
