@@ -1188,6 +1188,11 @@ window.addEventListener('message', async (event) => {
  */
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'EXTRACT_ARTICLE') {
+    // 微信页面有专用 content script 处理提取，避免竞争
+    const url = window.location.href
+    if (url.includes('mp.weixin.qq.com/cgi-bin/appmsg') || url.includes('mp.weixin.qq.com/s')) {
+      return false // 不处理，交给 weixin-editor.ts 或 weixin.ts
+    }
     const loading = showLoading()
     extractArticle().then(article => {
       loading.remove()

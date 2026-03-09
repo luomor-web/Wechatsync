@@ -827,6 +827,15 @@ function injectSyncButton() {
     }
   }
 
+  // 响应 popup 的文章提取请求，使用专用提取逻辑
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message.type === 'EXTRACT_ARTICLE') {
+      const article = extractWeixinArticle()
+      sendResponse({ article })
+      return true
+    }
+  })
+
   // 监听来自 background 的进度消息
   chrome.runtime.onMessage.addListener((message) => {
     // 如果消息带有 syncId，需要匹配当前的 syncId

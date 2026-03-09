@@ -1043,6 +1043,27 @@ async function fetchArticleByApi(appmsgid: string): Promise<any | null> {
   }
 }
 
+// 响应 popup 的文章提取请求，让 popup 在编辑页也能同步
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === 'EXTRACT_ARTICLE' && isEditorPage()) {
+    extractArticle().then(article => {
+      sendResponse({ article })
+    }).catch(() => {
+      sendResponse({ article: null })
+    })
+    return true // async response
+  }
+  if (message.type === 'EXPAND_SYNC_PANEL') {
+    // 支持从 popup 触发展开面板
+    const fab = document.getElementById('ws-fab')
+    if (fab && !fab.classList.contains('hidden')) {
+      fab.click()
+    }
+    sendResponse({ success: true })
+    return true
+  }
+})
+
 // 监听来自 background 的进度消息
 chrome.runtime.onMessage.addListener((message) => {
   // 如果消息带有 syncId，需要匹配当前的 syncId

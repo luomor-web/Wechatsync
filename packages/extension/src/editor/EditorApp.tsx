@@ -271,7 +271,7 @@ export function EditorApp() {
         <div className="px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <img src={chrome.runtime.getURL('assets/icon-48.png')} alt="Logo" className="w-6 h-6" />
-            <span className="font-medium text-gray-700">同步助手 - 编辑模式</span>
+            <span className="font-medium text-gray-700">同步助手 - 点击内容可直接修改</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -438,7 +438,7 @@ export function EditorApp() {
             ref={titleRef}
             contentEditable
             suppressContentEditableWarning
-            className="text-3xl font-bold text-gray-900 mb-8 outline-none focus:bg-blue-50 rounded px-2 -mx-2 leading-tight"
+            className="text-3xl font-bold text-gray-900 mb-8 outline-none border border-transparent hover:border-gray-200 focus:border-blue-300 focus:bg-blue-50 rounded px-2 -mx-2 leading-tight transition-colors"
           >
             {article.title}
           </h1>
@@ -448,7 +448,7 @@ export function EditorApp() {
             ref={contentRef}
             contentEditable
             suppressContentEditableWarning
-            className="outline-none focus:bg-blue-50/50 rounded article-content"
+            className="outline-none border border-transparent hover:border-gray-200 focus:border-blue-300 focus:bg-blue-50/50 rounded transition-colors article-content"
             style={{
               fontSize: '16px',
               lineHeight: '1.8',

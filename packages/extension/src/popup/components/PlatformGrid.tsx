@@ -44,14 +44,24 @@ export function PlatformGrid({
             {selectedCount}/{authenticatedCount}
           </span>
         </span>
-        <button
-          onClick={onSelectAll}
-          className="text-xs text-primary hover:underline"
-          disabled={loading}
-        >
-          {selectedCount === authenticatedCount ? '取消全选' : '全选已登录'}
-        </button>
+        {authenticatedCount > 0 && (
+          <button
+            onClick={onSelectAll}
+            className="text-xs text-primary hover:underline"
+            disabled={loading}
+          >
+            {selectedCount === authenticatedCount ? '取消全选' : '全选已登录'}
+          </button>
+        )}
       </div>
+
+      {/* 全未登录提示 */}
+      {!loading && platforms.length > 0 && authenticatedCount === 0 && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm">
+          <p className="font-medium text-amber-800 dark:text-amber-300 mb-1">还没有登录任何平台</p>
+          <p className="text-xs text-amber-700 dark:text-amber-400">点击下方平台图标，前往登录后返回即可同步</p>
+        </div>
+      )}
 
       {/* 平台网格 */}
       {loading ? (
