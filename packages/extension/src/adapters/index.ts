@@ -49,6 +49,7 @@ import {
   ZipDownloadAdapter,
   EastmoneyAdapter,
   NeteaseAdapter,
+  SmzdmAdapter,
 } from '@wechatsync/core'
 
 // 私有适配器 - 通过 glob 动态加载（文件不存在时为空对象，不会报错）
@@ -110,6 +111,7 @@ const ADAPTER_CLASSES: AdapterConstructor[] = [
   ZipDownloadAdapter,
   EastmoneyAdapter,
   NeteaseAdapter,
+  SmzdmAdapter,
   ...getPrivateAdapters(),
 ]
 
