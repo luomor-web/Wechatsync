@@ -1,7 +1,6 @@
 ---
 name: wechatsync
 description: "Multi-platform article publisher and content distribution tool. Sync and cross-post Markdown/HTML articles to 27+ platforms including Zhihu (知乎), Juejin (掘金), CSDN, Toutiao (头条), Weibo (微博), Xiaohongshu (小红书), Bilibili (B站), WordPress, Typecho, WeChat (微信公众号), and more. Use when the user wants to publish, sync, cross-post, or distribute articles (文章同步/多平台发布/一键发布) to Chinese content platforms, tech communities, blogging sites, or self-hosted blogs. Also use when checking platform login status or extracting articles from web pages. Keywords: content syndication, blog distribution, multi-platform publishing, self-media (自媒体), content creator tools."
-allowed-tools: Bash(wechatsync *)
 ---
 
 # WechatSync
@@ -10,11 +9,16 @@ Publish and sync Markdown/HTML articles to 27+ content platforms via CLI.
 
 ## Prerequisites
 
-1. Install CLI: `npm install -g @wechatsync/cli`
-2. Install Chrome extension: https://www.wechatsync.com/#install
-3. Enable "MCP Connection" in extension settings, get Token
-4. Set env: `export WECHATSYNC_TOKEN="your-token"`
-5. Log in to target platforms in browser
+This skill requires external tools that the user must install themselves:
+
+1. **CLI tool** (`@wechatsync/cli`): Open-source npm package ([source code](https://github.com/wechatsync/Wechatsync/tree/v2/packages/cli)). Install with `npm install -g @wechatsync/cli`
+2. **Chrome extension**: Open-source browser extension ([source code](https://github.com/wechatsync/Wechatsync/tree/v2/packages/extension)). Install from [Chrome Web Store](https://chrome.google.com/webstore/detail/hchobocdmclopcbnibdnoafilagadion) or [download ZIP](https://www.wechatsync.com/#install)
+3. **Token**: User-generated token set in extension settings. The token is created locally by the user and used only for localhost communication between CLI and extension. Set via `export WECHATSYNC_TOKEN="your-token"`
+4. **Platform logins**: Log in to target platforms in browser (extension uses existing browser cookies, no credentials are stored or transmitted)
+
+**Security model**: All data stays local. The CLI communicates with the Chrome extension over localhost. The extension calls platform APIs directly from the browser using existing login sessions. No third-party server involved. Full source code is open and auditable.
+
+Before running any command, confirm the user has completed the prerequisites. Do not install packages on the user's behalf without explicit consent.
 
 ## Commands
 
@@ -55,9 +59,10 @@ zhihu, juejin, csdn, jianshu, toutiao, weibo, bilibili, xiaohongshu, baijiahao, 
 
 ## Workflow
 
-1. Check login: `wechatsync platforms --auth`
-2. Sync: `wechatsync sync <file> -p <platform1>,<platform2>`
-3. Report results with draft URLs
+1. Confirm prerequisites are installed (ask user if unsure)
+2. Check login: `wechatsync platforms --auth`
+3. Sync: `wechatsync sync <file> -p <platform1>,<platform2>`
+4. Report results with draft URLs
 
 Example prompts:
 - "Sync this article to Juejin and Zhihu"
