@@ -74,14 +74,12 @@ async function updateBadge(state: ActiveSyncState | null) {
     return
   }
 
-  const completed = state.results.length
-  const total = state.selectedPlatforms.length
-
   if (state.status === 'syncing') {
-    await chrome.action.setBadgeText({ text: `${completed}/${total}` })
-    await chrome.action.setBadgeBackgroundColor({ color: BADGE_COLORS.syncing })
+    // 同步中不显示 badge，避免卡住后残留
+    await chrome.action.setBadgeText({ text: '' })
   } else if (state.status === 'completed') {
     const successCount = state.results.filter(r => r.success).length
+    const total = state.selectedPlatforms.length
     const failedCount = total - successCount
 
     if (failedCount === 0) {
@@ -95,13 +93,13 @@ async function updateBadge(state: ActiveSyncState | null) {
       await chrome.action.setBadgeBackgroundColor({ color: BADGE_COLORS.partial })
     }
 
-    // 8秒后清除 badge
+    // 5秒后清除 badge
     setTimeout(async () => {
       const storage = await chrome.storage.local.get(SYNC_STATE_KEY)
       if (storage[SYNC_STATE_KEY]?.status === 'completed') {
         await chrome.action.setBadgeText({ text: '' })
       }
-    }, 8000)
+    }, 5000)
   }
 }
 
