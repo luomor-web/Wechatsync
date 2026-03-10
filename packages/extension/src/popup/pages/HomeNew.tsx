@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Settings, RefreshCw, FileText, Loader2, Check, X, ExternalLink, ChevronDown, ChevronUp, Plus, Clock, Pencil, Download } from 'lucide-react'
+import { Settings, RefreshCw, FileText, Loader2, Check, X, ExternalLink, Plus, Clock, Pencil, Download } from 'lucide-react'
 import { useSyncStore } from '../stores/sync'
 import { PlatformGrid, type Platform as GridPlatform } from '../components/PlatformGrid'
 import { SettingsDrawer } from '../components/SettingsDrawer'
@@ -22,11 +22,9 @@ export function HomeNew() {
     error,
     imageProgress,
     platformProgress,
-    history,
     recovered,
     loadPlatforms,
     loadArticle,
-    loadHistory,
     recoverSyncState,
     togglePlatform,
     selectAll,
@@ -39,7 +37,6 @@ export function HomeNew() {
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [rateLimitWarning, setRateLimitWarning] = useState<string | null>(null)
-  const [historyExpanded, setHistoryExpanded] = useState(false)
   const [allPlatforms, setAllPlatforms] = useState<GridPlatform[]>([])
   const [refreshing, setRefreshing] = useState(false)
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null)
@@ -54,7 +51,6 @@ export function HomeNew() {
       // 再加载其他数据
       loadAllPlatforms()
       loadArticle()
-      loadHistory()
       // 加载悬浮按钮状态 & 检查是否首次同步
       chrome.storage.local.get(['floatingButtonEnabled', 'syncHistory'], (r) => {
         setFloatingEnabled(r.floatingButtonEnabled ?? false)
@@ -128,9 +124,6 @@ export function HomeNew() {
   // 成功/失败统计
   const successCount = results.filter(r => r.success).length
   const failedCount = results.filter(r => !r.success).length
-
-  // 最近历史（最多3条）
-  const recentHistory = history.slice(0, 3)
 
   return (
     <div className="flex flex-col h-[500px]">
@@ -217,150 +210,211 @@ export function HomeNew() {
           </div>
         )}
 
-        {/* 文章预览 */}
-        <div className={cn(
-          'rounded-lg p-3',
-          article ? 'bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900' : 'bg-muted/50'
-        )}>
-          {article ? (
-            <div>
-              <div className="flex items-center gap-1.5 mb-2">
-                <Check className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
-                <span className="text-xs font-medium text-green-700 dark:text-green-400">已识别文章，选择平台后同步</span>
+        {/* 完成状态：显示上次同步结果，覆盖文章预览和平台选择 */}
+        {status === 'completed' && results.length > 0 ? (
+          <div className="space-y-3">
+            {/* 顶部标签 */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Clock className="w-3.5 h-3.5" />
+              <span>上次同步结果</span>
+            </div>
+
+            {/* 文章卡片 */}
+            {article && (
+              <div className="rounded-lg p-3 bg-muted/40 border">
+                <div className="flex gap-3">
+                  {article.cover && (
+                    <img
+                      src={article.cover}
+                      alt=""
+                      className="w-14 h-14 rounded object-cover flex-shrink-0"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h2 className="font-medium text-sm line-clamp-2">{article.title}</h2>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      {successCount > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                          <Check className="w-3 h-3" />
+                          {successCount} 成功
+                        </span>
+                      )}
+                      {failedCount > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                          <X className="w-3 h-3" />
+                          {failedCount} 失败
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-3">
-                {article.cover && (
-                  <img
-                    src={article.cover}
-                    alt=""
-                    className="w-16 h-16 rounded object-cover flex-shrink-0"
-                  />
-                )}
-                <div className="flex-1 min-w-0">
-                  <h2 className="font-medium text-sm line-clamp-2">{article.title}</h2>
-                  {article.summary && (
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                      {article.summary}
-                    </p>
+            )}
+
+            {/* 渠道同步结果列表 */}
+            <div className="rounded-lg border divide-y">
+              {results.map(r => (
+                <div key={r.platform} className="flex items-center justify-between px-3 py-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className={cn(
+                      'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0',
+                      r.success
+                        ? 'bg-green-100 dark:bg-green-900/30'
+                        : 'bg-red-100 dark:bg-red-900/30'
+                    )}>
+                      {r.success ? (
+                        <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <X className="w-3 h-3 text-red-600 dark:text-red-400" />
+                      )}
+                    </div>
+                    <span className="text-sm">{r.platformName || r.platform}</span>
+                  </div>
+                  {r.success && r.postUrl && (
+                    <a
+                      href={r.postUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline flex items-center gap-1 text-xs flex-shrink-0"
+                    >
+                      查看 <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                  {!r.success && r.error && (
+                    <span className="text-xs text-red-500 truncate max-w-[120px] flex-shrink-0" title={r.error}>
+                      {r.error}
+                    </span>
                   )}
                 </div>
-                <button
-                  onClick={async () => {
-                    // 获取当前标签页
-                    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-                    if (tab?.id) {
-                      // 发送消息到 content script 打开编辑器
-                      chrome.tabs.sendMessage(tab.id, {
-                        type: 'OPEN_EDITOR',
-                        platforms: allPlatforms,
-                        selectedPlatforms: selectedPlatforms, // 传递已选中的平台
-                      })
-                      // 关闭 popup
-                      window.close()
-                    }
-                  }}
-                  className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
-                  title="同步前预览和调整内容"
-                >
-                  <Pencil className="w-3 h-3" />
-                  <span>调整</span>
-                </button>
-              </div>
+              ))}
             </div>
-          ) : (
-            <div className="py-3 space-y-2">
-              <div className="flex items-center justify-center text-muted-foreground">
-                <FileText className="w-5 h-5 mr-2" />
-                <span className="text-sm">当前页面未检测到文章</span>
-              </div>
-              <div className="text-xs text-muted-foreground space-y-1 px-2">
-                <p className="font-medium text-foreground/70">如何同步文章：</p>
-                <p>1. 打开要同步的文章页面（如公众号文章、博客等）</p>
-                <p>2. 点击扩展图标，选择平台后同步</p>
+
+            {/* 首次同步成功提示 */}
+            {isFirstSync && successCount > 0 && (
+              <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-2.5 space-y-1.5">
+                <p className="text-xs font-medium text-green-700 dark:text-green-400">
+                  首次同步成功！以后同步更方便：
+                </p>
                 {!floatingEnabled && (
                   <button
                     onClick={() => {
                       chrome.storage.local.set({ floatingButtonEnabled: true })
                       setFloatingEnabled(true)
                     }}
-                    className="mt-1 text-primary hover:underline"
+                    className="text-xs text-primary hover:underline block"
                   >
-                    开启悬浮同步按钮，在网页上快捷同步 →
+                    开启悬浮按钮 — 在任意文章页一键同步
                   </button>
                 )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 平台选择 */}
-        {article ? (
-          <PlatformGrid
-            platforms={allPlatforms}
-            selected={selectedSet}
-            onToggle={togglePlatform}
-            onSelectAll={handleSelectAll}
-            loading={status === 'loading' && allPlatforms.length === 0}
-            syncing={syncingPlatforms}
-            results={resultMap}
-          />
-        ) : allPlatforms.length > 0 && (
-          <div className="text-xs text-muted-foreground text-center py-1">
-            已登录 {authenticatedPlatforms.length} 个平台，共 {allPlatforms.length} 个可用
-          </div>
-        )}
-
-        {/* 错误提示 */}
-        {error && (
-          <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-3 text-sm text-red-600 dark:text-red-400">
-            {error}
-          </div>
-        )}
-
-        {/* 最近同步 */}
-        {recentHistory.length > 0 && status !== 'syncing' && status !== 'completed' && (
-          <div className="space-y-2">
-            <button
-              onClick={() => setHistoryExpanded(!historyExpanded)}
-              className="flex items-center justify-between w-full text-sm"
-            >
-              <span className="text-muted-foreground">最近同步</span>
-              {historyExpanded ? (
-                <ChevronUp className="w-4 h-4 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              )}
-            </button>
-
-            {historyExpanded && (
-              <div className="space-y-2">
-                {recentHistory.map(item => {
-                  const results = item.results || []
-                  const success = results.filter(r => r.success).length
-                  const total = results.length
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-2 bg-muted/30 rounded-lg"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{item.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(item.startTime ?? item.timestamp ?? Date.now()).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <span className={cn(
-                        'text-xs px-2 py-0.5 rounded',
-                        success === total ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                      )}>
-                        {success}/{total}
-                      </span>
-                    </div>
-                  )
-                })}
+                <p className="text-xs text-green-600 dark:text-green-500">
+                  下次在文章页点击扩展图标即可快速同步
+                </p>
               </div>
             )}
           </div>
+        ) : (
+          <>
+            {/* 文章预览 */}
+            <div className={cn(
+              'rounded-lg p-3',
+              article ? 'bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900' : 'bg-muted/50'
+            )}>
+              {article ? (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Check className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                    <span className="text-xs font-medium text-green-700 dark:text-green-400">已识别文章，选择平台后同步</span>
+                  </div>
+                  <div className="flex gap-3">
+                    {article.cover && (
+                      <img
+                        src={article.cover}
+                        alt=""
+                        className="w-16 h-16 rounded object-cover flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h2 className="font-medium text-sm line-clamp-2">{article.title}</h2>
+                      {article.summary && (
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                          {article.summary}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        // 获取当前标签页
+                        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+                        if (tab?.id) {
+                          // 发送消息到 content script 打开编辑器
+                          chrome.tabs.sendMessage(tab.id, {
+                            type: 'OPEN_EDITOR',
+                            platforms: allPlatforms,
+                            selectedPlatforms: selectedPlatforms, // 传递已选中的平台
+                          })
+                          // 关闭 popup
+                          window.close()
+                        }
+                      }}
+                      className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                      title="同步前预览和调整内容"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>调整</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-3 space-y-2">
+                  <div className="flex items-center justify-center text-muted-foreground">
+                    <FileText className="w-5 h-5 mr-2" />
+                    <span className="text-sm">当前页面未检测到文章</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-1 px-2">
+                    <p className="font-medium text-foreground/70">如何同步文章：</p>
+                    <p>1. 打开要同步的文章页面（如公众号文章、博客等）</p>
+                    <p>2. 点击扩展图标，选择平台后同步</p>
+                    {!floatingEnabled && (
+                      <button
+                        onClick={() => {
+                          chrome.storage.local.set({ floatingButtonEnabled: true })
+                          setFloatingEnabled(true)
+                        }}
+                        className="mt-1 text-primary hover:underline"
+                      >
+                        开启悬浮同步按钮，在网页上快捷同步 →
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 平台选择 */}
+            {article ? (
+              <PlatformGrid
+                platforms={allPlatforms}
+                selected={selectedSet}
+                onToggle={togglePlatform}
+                onSelectAll={handleSelectAll}
+                loading={status === 'loading' && allPlatforms.length === 0}
+                syncing={syncingPlatforms}
+                results={resultMap}
+              />
+            ) : allPlatforms.length > 0 && (
+              <div className="text-xs text-muted-foreground text-center py-1">
+                已登录 {authenticatedPlatforms.length} 个平台，共 {allPlatforms.length} 个可用
+              </div>
+            )}
+
+            {/* 错误提示 */}
+            {error && (
+              <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-3 text-sm text-red-600 dark:text-red-400">
+                {error}
+              </div>
+            )}
+
+          </>
         )}
       </main>
 
@@ -474,69 +528,6 @@ export function HomeNew() {
                   </div>
                 )
               })}
-            </div>
-          </div>
-        )}
-
-        {/* 完成状态面板 */}
-        {status === 'completed' && results.length > 0 && (
-          <div className="px-4 pt-3 pb-2 bg-muted/50 border-b space-y-2 max-h-52 overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">同步完成</span>
-              <span className="text-xs text-muted-foreground">
-                {successCount} 成功 / {failedCount} 失败
-              </span>
-            </div>
-            {/* 首次同步成功提示 */}
-            {isFirstSync && successCount > 0 && (
-              <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-2.5 space-y-1.5">
-                <p className="text-xs font-medium text-green-700 dark:text-green-400">
-                  首次同步成功！以后同步更方便：
-                </p>
-                {!floatingEnabled && (
-                  <button
-                    onClick={() => {
-                      chrome.storage.local.set({ floatingButtonEnabled: true })
-                      setFloatingEnabled(true)
-                    }}
-                    className="text-xs text-primary hover:underline block"
-                  >
-                    开启悬浮按钮 — 在任意文章页一键同步
-                  </button>
-                )}
-                <p className="text-xs text-green-600 dark:text-green-500">
-                  下次在文章页点击扩展图标即可快速同步
-                </p>
-              </div>
-            )}
-            <div className="space-y-1">
-              {results.map(r => (
-                <div key={r.platform} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2">
-                    {r.success ? (
-                      <Check className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <X className="w-4 h-4 text-red-500" />
-                    )}
-                    {r.platformName || r.platform}
-                  </span>
-                  {r.success && r.postUrl && (
-                    <a
-                      href={r.postUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline flex items-center gap-1 text-xs"
-                    >
-                      查看 <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
-                  {!r.success && r.error && (
-                    <span className="text-xs text-red-500 truncate max-w-[100px]" title={r.error}>
-                      {r.error}
-                    </span>
-                  )}
-                </div>
-              ))}
             </div>
           </div>
         )}
