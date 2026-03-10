@@ -1,96 +1,131 @@
 ---
 name: wechatsync
-description: 同步文章到多个内容平台（知乎、掘金、CSDN、头条、微博等）。当用户想要发布或同步文章到内容平台时使用。
+description: Publish and sync articles to 27+ content platforms (Zhihu, Juejin, CSDN, Toutiao, Weibo, Xiaohongshu, Bilibili, WordPress, etc.) from Markdown or HTML files. Use when the user wants to publish, sync, cross-post, or distribute articles to Chinese content platforms, blogging sites, or self-hosted blogs. Also use when checking platform login status or extracting articles from web pages.
 ---
 
 # WechatSync
 
-同步文章到多个内容平台（知乎、掘金、CSDN、头条、微博等 27+ 平台）。
+Publish and sync articles to 27+ content platforms from the command line.
 
-## 前置条件
+## Prerequisites
 
-1. 安装 CLI: `npm install -g @wechatsync/cli`
-2. 安装 Chrome 扩展: https://www.wechatsync.com/#install
-3. 在扩展设置中启用 MCP 连接，获取 Token
-4. 设置环境变量: `export WECHATSYNC_TOKEN="你的token"`
-5. 在各平台登录账号
+1. Install CLI: `npm install -g @wechatsync/cli`
+2. Install Chrome extension: https://www.wechatsync.com/#install
+3. Enable "MCP Connection" in extension settings and get your Token
+4. Set environment variable: `export WECHATSYNC_TOKEN="your-token"`
+5. Log in to target platforms in your browser
 
-## 命令
+## Commands
 
-### 同步文章
+### Sync Articles
 
 ```bash
-# 同步到单个平台
+# Sync to a single platform
 wechatsync sync article.md -p juejin
 
-# 同步到多个平台
+# Sync to multiple platforms
 wechatsync sync article.md -p juejin,zhihu,csdn
 
-# 指定标题
-wechatsync sync article.md -p juejin -t "我的文章标题"
+# Specify title
+wechatsync sync article.md -p juejin -t "My Article Title"
 
-# 添加封面图
+# Add cover image
 wechatsync sync article.md -p juejin --cover ./cover.png
 
-# 预览（不实际同步）
+# Dry run (preview without syncing)
 wechatsync sync article.md -p juejin --dry-run
 ```
 
-### 查看平台
+### List Platforms
 
 ```bash
-# 列出所有平台
+# List all platforms
 wechatsync platforms
 
-# 显示登录状态
+# Show login status
 wechatsync platforms --auth
 ```
 
-### 检查登录状态
+### Check Auth Status
 
 ```bash
-# 检查所有平台
+# Check all platforms
 wechatsync auth
 
-# 检查单个平台
+# Check a single platform
 wechatsync auth zhihu
 ```
 
-### 提取文章
+### Extract Article
 
 ```bash
-# 从浏览器当前页面提取
+# Extract from current browser page
 wechatsync extract
 
-# 保存到文件
+# Save to file
 wechatsync extract -o article.md
 ```
 
-## 支持的平台
+## Supported Platforms
 
-zhihu, juejin, jianshu, toutiao, weibo, bilibili, baijiahao, csdn, yuque, douban, sohu, xueqiu, weixin, woshipm, dayu, yidian, 51cto, sohufocus, imooc, oschina, segmentfault, cnblogs, x, xiaohongshu, eastmoney, smzdm, netease
+| Platform | ID | Category |
+|----------|----|----------|
+| Zhihu (知乎) | zhihu | Social |
+| Juejin (掘金) | juejin | Tech |
+| CSDN | csdn | Tech |
+| Jianshu (简书) | jianshu | General |
+| Toutiao (头条号) | toutiao | General |
+| Weibo (微博) | weibo | Social |
+| Bilibili (B站) | bilibili | General |
+| Xiaohongshu (小红书) | xiaohongshu | Social |
+| Baijiahao (百家号) | baijiahao | General |
+| WeChat (微信公众号) | weixin | Social |
+| Yuque (语雀) | yuque | Tech |
+| Douban (豆瓣) | douban | General |
+| Sohu (搜狐号) | sohu | General |
+| Xueqiu (雪球) | xueqiu | Finance |
+| Woshipm (人人都是产品经理) | woshipm | Product |
+| Dayu (大鱼号) | dayu | General |
+| Yidian (一点号) | yidian | General |
+| 51CTO | 51cto | Tech |
+| Sohu Focus (搜狐焦点) | sohufocus | Real Estate |
+| iMooc (慕课网) | imooc | Tech |
+| OSChina (开源中国) | oschina | Tech |
+| SegmentFault | segmentfault | Tech |
+| Cnblogs (博客园) | cnblogs | Tech |
+| X (Twitter) | x | Global |
+| Eastmoney (东方财富) | eastmoney | Finance |
+| SMZDM (什么值得买) | smzdm | General |
+| Netease (网易号) | netease | General |
+| WordPress | wordpress | Self-hosted |
+| Typecho | typecho | Self-hosted |
 
-## 图片处理
+## Image Handling
 
-- 本地图片自动上传到第一个目标平台的图床
-- 其他平台会自动转存图片
-- 支持格式: PNG, JPG, GIF, WebP, SVG
+- Local images are automatically uploaded to the target platform's CDN
+- Cross-platform image re-hosting is automatic
+- Supported formats: PNG, JPG, GIF, WebP, SVG
 
-## 文章格式
+## Article Format
 
-支持 Markdown 和 HTML 文件。Markdown 文件标题从以下位置提取：
-1. YAML front matter 的 `title` 字段
-2. 第一个 `# 标题`
+Supports Markdown and HTML files. For Markdown, the title is extracted from:
+1. YAML front matter `title` field
+2. First `# heading`
 
-## 示例
+## Examples
 
-用户: "把这篇文章同步到掘金和知乎"
-操作:
-1. 先用 `wechatsync platforms --auth` 检查登录状态
-2. 用 `wechatsync sync <文件路径> -p juejin,zhihu` 同步
+User: "Sync this article to Juejin and Zhihu"
+Steps:
+1. Check login status: `wechatsync platforms --auth`
+2. Sync: `wechatsync sync <file> -p juejin,zhihu`
 
-用户: "帮我看看哪些平台已登录"
-操作: `wechatsync platforms --auth`
+User: "Which platforms am I logged into?"
+Run: `wechatsync platforms --auth`
 
-用户: "从浏览器提取当前文章保存下来"
-操作: `wechatsync extract -o article.md`
+User: "Extract the current article from browser"
+Run: `wechatsync extract -o article.md`
+
+User: "把这篇文章同步到掘金和知乎"
+Steps:
+1. `wechatsync platforms --auth`
+2. `wechatsync sync <file> -p juejin,zhihu`
