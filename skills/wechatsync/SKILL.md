@@ -1,131 +1,66 @@
 ---
 name: wechatsync
 description: Publish and sync articles to 27+ content platforms (Zhihu, Juejin, CSDN, Toutiao, Weibo, Xiaohongshu, Bilibili, WordPress, etc.) from Markdown or HTML files. Use when the user wants to publish, sync, cross-post, or distribute articles to Chinese content platforms, blogging sites, or self-hosted blogs. Also use when checking platform login status or extracting articles from web pages.
+allowed-tools: Bash(wechatsync *)
 ---
 
 # WechatSync
 
-Publish and sync articles to 27+ content platforms from the command line.
+Publish and sync Markdown/HTML articles to 27+ content platforms via CLI.
 
 ## Prerequisites
 
 1. Install CLI: `npm install -g @wechatsync/cli`
 2. Install Chrome extension: https://www.wechatsync.com/#install
-3. Enable "MCP Connection" in extension settings and get your Token
-4. Set environment variable: `export WECHATSYNC_TOKEN="your-token"`
-5. Log in to target platforms in your browser
+3. Enable "MCP Connection" in extension settings, get Token
+4. Set env: `export WECHATSYNC_TOKEN="your-token"`
+5. Log in to target platforms in browser
 
 ## Commands
 
-### Sync Articles
+### Sync
 
 ```bash
-# Sync to a single platform
-wechatsync sync article.md -p juejin
-
-# Sync to multiple platforms
-wechatsync sync article.md -p juejin,zhihu,csdn
-
-# Specify title
-wechatsync sync article.md -p juejin -t "My Article Title"
-
-# Add cover image
-wechatsync sync article.md -p juejin --cover ./cover.png
-
-# Dry run (preview without syncing)
-wechatsync sync article.md -p juejin --dry-run
+wechatsync sync article.md -p juejin              # single platform
+wechatsync sync article.md -p juejin,zhihu,csdn   # multiple platforms
+wechatsync sync article.md -p juejin -t "Title"   # custom title
+wechatsync sync article.md -p juejin --cover ./cover.png  # cover image
+wechatsync sync article.md -p juejin --dry-run     # preview only
 ```
 
-### List Platforms
+### Platforms & Auth
 
 ```bash
-# List all platforms
-wechatsync platforms
-
-# Show login status
-wechatsync platforms --auth
+wechatsync platforms          # list all platforms
+wechatsync platforms --auth   # show login status
+wechatsync auth zhihu         # check single platform
 ```
 
-### Check Auth Status
+### Extract
 
 ```bash
-# Check all platforms
-wechatsync auth
-
-# Check a single platform
-wechatsync auth zhihu
+wechatsync extract              # extract from current browser page
+wechatsync extract -o article.md  # save to file
 ```
 
-### Extract Article
+## Platform IDs
 
-```bash
-# Extract from current browser page
-wechatsync extract
+zhihu, juejin, csdn, jianshu, toutiao, weibo, bilibili, xiaohongshu, baijiahao, weixin, yuque, douban, sohu, xueqiu, woshipm, dayu, yidian, 51cto, sohufocus, imooc, oschina, segmentfault, cnblogs, x, eastmoney, smzdm, netease, wordpress, typecho
 
-# Save to file
-wechatsync extract -o article.md
-```
+## Notes
 
-## Supported Platforms
+- Images auto-uploaded to target platform CDN (PNG, JPG, GIF, WebP, SVG)
+- Markdown title extracted from front matter `title` or first `# heading`
+- Articles sync as **drafts** by default — user reviews before publishing
 
-| Platform | ID | Category |
-|----------|----|----------|
-| Zhihu (知乎) | zhihu | Social |
-| Juejin (掘金) | juejin | Tech |
-| CSDN | csdn | Tech |
-| Jianshu (简书) | jianshu | General |
-| Toutiao (头条号) | toutiao | General |
-| Weibo (微博) | weibo | Social |
-| Bilibili (B站) | bilibili | General |
-| Xiaohongshu (小红书) | xiaohongshu | Social |
-| Baijiahao (百家号) | baijiahao | General |
-| WeChat (微信公众号) | weixin | Social |
-| Yuque (语雀) | yuque | Tech |
-| Douban (豆瓣) | douban | General |
-| Sohu (搜狐号) | sohu | General |
-| Xueqiu (雪球) | xueqiu | Finance |
-| Woshipm (人人都是产品经理) | woshipm | Product |
-| Dayu (大鱼号) | dayu | General |
-| Yidian (一点号) | yidian | General |
-| 51CTO | 51cto | Tech |
-| Sohu Focus (搜狐焦点) | sohufocus | Real Estate |
-| iMooc (慕课网) | imooc | Tech |
-| OSChina (开源中国) | oschina | Tech |
-| SegmentFault | segmentfault | Tech |
-| Cnblogs (博客园) | cnblogs | Tech |
-| X (Twitter) | x | Global |
-| Eastmoney (东方财富) | eastmoney | Finance |
-| SMZDM (什么值得买) | smzdm | General |
-| Netease (网易号) | netease | General |
-| WordPress | wordpress | Self-hosted |
-| Typecho | typecho | Self-hosted |
+## Workflow
 
-## Image Handling
+1. Check login: `wechatsync platforms --auth`
+2. Sync: `wechatsync sync <file> -p <platform1>,<platform2>`
+3. Report results with draft URLs
 
-- Local images are automatically uploaded to the target platform's CDN
-- Cross-platform image re-hosting is automatic
-- Supported formats: PNG, JPG, GIF, WebP, SVG
-
-## Article Format
-
-Supports Markdown and HTML files. For Markdown, the title is extracted from:
-1. YAML front matter `title` field
-2. First `# heading`
-
-## Examples
-
-User: "Sync this article to Juejin and Zhihu"
-Steps:
-1. Check login status: `wechatsync platforms --auth`
-2. Sync: `wechatsync sync <file> -p juejin,zhihu`
-
-User: "Which platforms am I logged into?"
-Run: `wechatsync platforms --auth`
-
-User: "Extract the current article from browser"
-Run: `wechatsync extract -o article.md`
-
-User: "把这篇文章同步到掘金和知乎"
-Steps:
-1. `wechatsync platforms --auth`
-2. `wechatsync sync <file> -p juejin,zhihu`
+Example prompts:
+- "Sync this article to Juejin and Zhihu"
+- "Which platforms am I logged into?"
+- "Extract the article from browser and save it"
+- "把这篇文章同步到掘金和知乎"
