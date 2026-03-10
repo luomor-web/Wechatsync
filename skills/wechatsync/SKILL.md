@@ -5,7 +5,7 @@ description: 同步文章到多个内容平台（知乎、掘金、CSDN、头条
 
 # WechatSync
 
-同步文章到多个内容平台（知乎、掘金、CSDN、头条、微博等 20+ 平台）。
+同步文章到多个内容平台（知乎、掘金、CSDN、头条、微博等 27+ 平台）。
 
 ## 前置条件
 
@@ -68,7 +68,7 @@ wechatsync extract -o article.md
 
 ## 支持的平台
 
-zhihu, juejin, jianshu, toutiao, weibo, bilibili, baijiahao, csdn, yuque, douban, sohu, xueqiu, weixin, woshipm, dayu, yidian, 51cto, sohufocus, imooc, oschina, segmentfault, cnblogs, x, xiaohongshu
+zhihu, juejin, jianshu, toutiao, weibo, bilibili, baijiahao, csdn, yuque, douban, sohu, xueqiu, weixin, woshipm, dayu, yidian, 51cto, sohufocus, imooc, oschina, segmentfault, cnblogs, x, xiaohongshu, eastmoney, smzdm, netease
 
 ## 图片处理
 
