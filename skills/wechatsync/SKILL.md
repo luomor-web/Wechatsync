@@ -1,6 +1,20 @@
 ---
 name: wechatsync
 description: "Multi-platform article publisher and content distribution tool. Sync and cross-post Markdown/HTML articles to 27+ platforms including Zhihu (知乎), Juejin (掘金), CSDN, Toutiao (头条), Weibo (微博), Xiaohongshu (小红书), Bilibili (B站), WordPress, Typecho, WeChat (微信公众号), and more. Use when the user wants to publish, sync, cross-post, or distribute articles (文章同步/多平台发布/一键发布) to Chinese content platforms, tech communities, blogging sites, or self-hosted blogs. Also use when checking platform login status or extracting articles from web pages. Keywords: content syndication, blog distribution, multi-platform publishing, self-media (自媒体), content creator tools."
+metadata:
+  openclaw:
+    requires:
+      env:
+        - WECHATSYNC_TOKEN
+      bins:
+        - wechatsync
+    primaryEnv: WECHATSYNC_TOKEN
+    emoji: "\U0001F4DD"
+    homepage: https://github.com/wechatsync/Wechatsync
+    install:
+      - kind: node
+        package: "@wechatsync/cli"
+        bins: [wechatsync]
 ---
 
 # WechatSync
