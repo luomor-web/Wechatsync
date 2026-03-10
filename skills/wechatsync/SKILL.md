@@ -1,6 +1,6 @@
 ---
 name: wechatsync
-description: Publish and sync articles to 27+ content platforms (Zhihu, Juejin, CSDN, Toutiao, Weibo, Xiaohongshu, Bilibili, WordPress, etc.) from Markdown or HTML files. Use when the user wants to publish, sync, cross-post, or distribute articles to Chinese content platforms, blogging sites, or self-hosted blogs. Also use when checking platform login status or extracting articles from web pages.
+description: "Multi-platform article publisher and content distribution tool. Sync and cross-post Markdown/HTML articles to 27+ platforms including Zhihu (知乎), Juejin (掘金), CSDN, Toutiao (头条), Weibo (微博), Xiaohongshu (小红书), Bilibili (B站), WordPress, Typecho, WeChat (微信公众号), and more. Use when the user wants to publish, sync, cross-post, or distribute articles (文章同步/多平台发布/一键发布) to Chinese content platforms, tech communities, blogging sites, or self-hosted blogs. Also use when checking platform login status or extracting articles from web pages. Keywords: content syndication, blog distribution, multi-platform publishing, self-media (自媒体), content creator tools."
 allowed-tools: Bash(wechatsync *)
 ---
 
