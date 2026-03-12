@@ -1,6 +1,6 @@
 ---
 name: wechatsync
-description: "Multi-platform article publisher and content distribution tool. Sync and cross-post Markdown/HTML articles to 27+ platforms including Zhihu (知乎), Juejin (掘金), CSDN, Toutiao (头条), Weibo (微博), Xiaohongshu (小红书), Bilibili (B站), WordPress, Typecho, WeChat (微信公众号), and more. Use when the user wants to publish, sync, cross-post, or distribute articles (文章同步/多平台发布/一键发布) to Chinese content platforms, tech communities, blogging sites, or self-hosted blogs. Also use when checking platform login status or extracting articles from web pages. Keywords: content syndication, blog distribution, multi-platform publishing, self-media (自媒体), content creator tools."
+description: "Multi-platform article publisher and content distribution tool. Sync and cross-post Markdown/HTML articles to 29+ platforms including Zhihu (知乎), Juejin (掘金), CSDN, Toutiao (头条), Weibo (微博), Xiaohongshu (小红书), Bilibili (B站), WordPress, Typecho, WeChat (微信公众号), and more. Use when the user wants to publish, sync, cross-post, or distribute articles (文章同步/多平台发布/一键发布) to Chinese content platforms, tech communities, blogging sites, or self-hosted blogs. Also use when checking platform login status or extracting articles from web pages. Keywords: content syndication, blog distribution, multi-platform publishing, self-media (自媒体), content creator tools."
 metadata:
   openclaw:
     requires:
@@ -19,7 +19,7 @@ metadata:
 
 # WechatSync
 
-Publish and sync Markdown/HTML articles to 27+ content platforms via CLI.
+Publish and sync Markdown/HTML articles to 29+ content platforms via CLI.
 
 ## Prerequisites
 
@@ -63,7 +63,7 @@ wechatsync extract -o article.md  # save to file
 
 ## Platform IDs
 
-zhihu, juejin, csdn, jianshu, toutiao, weibo, bilibili, xiaohongshu, baijiahao, weixin, yuque, douban, sohu, xueqiu, woshipm, dayu, yidian, 51cto, sohufocus, imooc, oschina, segmentfault, cnblogs, x, eastmoney, smzdm, netease, wordpress, typecho
+zhihu, juejin, csdn, jianshu, toutiao, douyin, weibo, bilibili, xiaohongshu, baijiahao, weixin, yuque, douban, sohu, xueqiu, woshipm, dayu, yidian, 51cto, sohufocus, imooc, oschina, segmentfault, cnblogs, x, eastmoney, smzdm, netease, wordpress, typecho
 
 ## Notes
 
