@@ -17,6 +17,7 @@ import { extractArticle as extractWithReader, ReaderResult } from '../lib/reader
 import { htmlToMarkdownNative, type PreprocessConfig } from '@wechatsync/core'
 import { createLogger } from '../lib/logger'
 import { preprocessContentDOM, preprocessForPlatform, backupAndSimplifyCodeBlocks, restoreCodeBlocks, type PreprocessResult } from '../lib/content-processor'
+import { createSyncFab } from '../lib/fab'
 
 const logger = createLogger('Extractor')
 
@@ -907,54 +908,16 @@ function injectFloatingButton() {
   // 微信公众号页面已有专属悬浮按钮，不重复注入
   if (window.location.hostname === 'mp.weixin.qq.com') return
 
-  const btn = document.createElement('div')
+  const btn = createSyncFab({
+    onClick: () => {
+      pendingLoading = showLoading()
+      chrome.runtime.sendMessage({ type: 'TRIGGER_OPEN_EDITOR' })
+    },
+  })
   btn.id = 'wechatsync-floating-btn'
-  btn.title = '同步文章'
-  btn.style.cssText = `
-    position: fixed !important;
-    right: 24px !important;
-    bottom: 88px !important;
-    height: 40px !important;
-    padding: 0 16px !important;
-    border-radius: 20px !important;
-    background: linear-gradient(135deg, #07c160 0%, #06ad56 100%) !important;
-    box-shadow: 0 4px 12px rgba(7, 193, 96, 0.35) !important;
-    cursor: pointer !important;
-    z-index: 2147483646 !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s !important;
-    user-select: none !important;
-    color: white !important;
-    font-size: 14px !important;
-    font-weight: 500 !important;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-    border: none !important;
-  `
-  btn.innerHTML = `
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-      <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
-    </svg>
-    <span style="color:white;font-size:14px;font-weight:500;">同步</span>
-  `
-
-  btn.addEventListener('mouseenter', () => {
-    btn.style.transform = 'scale(1.05)'
-    btn.style.boxShadow = '0 6px 20px rgba(7, 193, 96, 0.45)'
-  })
-  btn.addEventListener('mouseleave', () => {
-    btn.style.transform = 'scale(1)'
-    btn.style.boxShadow = '0 4px 12px rgba(7, 193, 96, 0.35)'
-  })
-  btn.addEventListener('click', () => {
-    // 立即显示 loading（不等 background 检查平台登录状态）
-    pendingLoading = showLoading()
-    chrome.runtime.sendMessage({ type: 'TRIGGER_OPEN_EDITOR' })
-  })
 
   document.body.appendChild(btn)
-  floatingButton = btn
+  floatingButton = btn as HTMLDivElement
 }
 
 function removeFloatingButton() {
@@ -1146,6 +1109,8 @@ window.addEventListener('message', async (event) => {
     if (data.type === 'CLOSE_EDITOR') {
       closeEditor()
     } else if (data.type === 'START_SYNC') {
+      // 只处理来自编辑器的 START_SYNC，忽略来自 sync-dialog 的
+      if (!editorIframe) return
       // 转发同步请求到 background
       // 编辑器传来的是 HTML content
       const rawHtml = data.article.content || ''
