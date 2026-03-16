@@ -533,9 +533,19 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   },
 
   updateProgress: (result: SyncResult) => {
-    set(state => ({
-      results: [...state.results, result],
-    }))
+    set(state => {
+      const newResults = [...state.results, result]
+      // Auto-transition to completed when all platforms are done.
+      // This handles the case where popup was closed during sync and
+      // reopened — the startSync response handler won't fire, so we
+      // detect completion here from individual SYNC_PROGRESS messages.
+      const isComplete = state.status === 'syncing' &&
+        newResults.length >= state.selectedPlatforms.length
+      return {
+        results: newResults,
+        ...(isComplete ? { status: 'completed' as const, imageProgress: null } : {}),
+      }
+    })
   },
 
   updateImageProgress: (progress: ImageProgress | null) => {
