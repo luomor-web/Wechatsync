@@ -64,7 +64,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["assets/*", "src/editor/index.html", "inject-api.js"],
+      "resources": ["assets/*", "src/editor/index.html", "src/sync-dialog/index.html", "inject-api.js"],
       "matches": ["<all_urls>"]
     }
   ]

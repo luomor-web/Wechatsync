@@ -27,6 +27,7 @@ import {
 } from '../lib/analytics'
 import { checkSyncFrequency, recordSync } from '../lib/rate-limit'
 import { checkForUpdates, isUpdateDismissed } from '../lib/version-check'
+import { fetchRemoteConfig, fetchConfigIfNeeded } from '../lib/remote-config'
 
 const logger = createLogger('Background')
 
@@ -131,6 +132,9 @@ type MessageAction =
   | { type: 'MCP_ENABLE' }
   | { type: 'MCP_DISABLE' }
   | { type: 'MCP_STATUS' }
+  | { type: 'MCP_SET_SERVER_URL'; payload: { url: string } }
+  | { type: 'MCP_WATCH_START' }
+  | { type: 'MCP_WATCH_STOP' }
   | { type: 'TRACK_ARTICLE_EXTRACT'; payload: { source: string; success: boolean; hasTitle?: boolean; hasContent?: boolean; hasCover?: boolean; contentLength?: number } }
   | { type: 'GET_SYNC_STATE' }
   | { type: 'CLEAR_SYNC_STATE' }
@@ -188,7 +192,10 @@ async function handleMessage(message: MessageAction, sender?: chrome.runtime.Mes
           cmsType: a.type,
         }))
 
-      return { platforms: [...dslWithType, ...cmsPlatforms] }
+      const allPlatforms = [...dslWithType, ...cmsPlatforms]
+      // 缓存完整平台列表，供 popup 启动时立即渲染
+      chrome.storage.local.set({ platformListCache: allPlatforms }).catch(() => {})
+      return { platforms: allPlatforms }
     }
 
     case 'CHECK_AUTH': {
@@ -601,11 +608,14 @@ async function handleMessage(message: MessageAction, sender?: chrome.runtime.Mes
 
     case 'MCP_ENABLE': {
       // 检查是否已有 token，没有才生成新的
-      const storage = await chrome.storage.local.get('mcpToken')
+      const storage = await chrome.storage.local.get(['mcpToken', 'mcpServerUrl'])
       const token = storage.mcpToken || crypto.randomUUID()
       await chrome.storage.local.set({ mcpEnabled: true, mcpToken: token })
-      // 设置 token 并启动客户端
+      // 设置 token、服务器地址并启动客户端
       mcpClient.setToken(token)
+      if (storage.mcpServerUrl) {
+        mcpClient.setServerUrl(storage.mcpServerUrl)
+      }
       startMcpClient()
       logger.info(' MCP enabled')
       trackMcpUsage('enable').catch(() => {})
@@ -624,13 +634,38 @@ async function handleMessage(message: MessageAction, sender?: chrome.runtime.Mes
       return { success: true }
     }
 
+    case 'MCP_SET_SERVER_URL': {
+      const url = message.payload.url
+      await chrome.storage.local.set({ mcpServerUrl: url || '' })
+      mcpClient.setServerUrl(url)
+      // 地址变更后，断开重连
+      if (mcpClient.isConnected()) {
+        mcpClient.disconnect()
+        mcpClient.resetReconnect()
+      } else {
+        mcpClient.resetReconnect()
+      }
+      return { success: true }
+    }
+
+    case 'MCP_WATCH_START': {
+      mcpClient.setActivelyWatched(true)
+      return { success: true }
+    }
+
+    case 'MCP_WATCH_STOP': {
+      mcpClient.setActivelyWatched(false)
+      return { success: true }
+    }
+
     case 'MCP_STATUS': {
-      const storage = await chrome.storage.local.get(['mcpEnabled', 'mcpToken'])
+      const storage = await chrome.storage.local.get(['mcpEnabled', 'mcpToken', 'mcpServerUrl'])
       const mcpStatus = getMcpStatus()
       return {
         enabled: storage.mcpEnabled ?? false,
         connected: mcpStatus.connected,
         token: storage.mcpToken,  // 返回 token 供 MCP Server 使用
+        serverUrl: storage.mcpServerUrl || '',
       }
     }
 
@@ -1088,6 +1123,9 @@ chrome.runtime.onInstalled.addListener(async details => {
   // 追踪安装/更新
   trackInstall(details.reason, details.previousVersion).catch(() => {})
 
+  // 拉取远程配置
+  fetchRemoteConfig().catch(() => {})
+
   // 记录安装时间（用于首次同步追踪）
   if (details.reason === 'install') {
     recordInstallTimestamp().catch(() => {})
@@ -1098,8 +1136,12 @@ chrome.runtime.onInstalled.addListener(async details => {
     const previousVersion = details.previousVersion || '0.0.0'
     const currentVersion = chrome.runtime.getManifest().version
 
-    // 从 1.x 升级到 2.x，显示更新日志
-    if (previousVersion.startsWith('1.') && currentVersion.startsWith('2.')) {
+    // 重要版本升级时显示更新日志
+    const showChangelogVersions = ['2.0.8']
+    if (
+      showChangelogVersions.includes(currentVersion) ||
+      (previousVersion.startsWith('1.') && currentVersion.startsWith('2.'))
+    ) {
       chrome.tabs.create({
         url: 'https://www.wechatsync.com/changelog?from=' + previousVersion + '&to=' + currentVersion,
         active: true,
@@ -1120,7 +1162,7 @@ chrome.runtime.onInstalled.addListener(async details => {
  * 启动时初始化 MCP（如果已启用）
  */
 async function initMcpIfEnabled() {
-  const storage = await chrome.storage.local.get(['mcpEnabled', 'mcpToken'])
+  const storage = await chrome.storage.local.get(['mcpEnabled', 'mcpToken', 'mcpServerUrl'])
   if (storage.mcpEnabled) {
     if (storage.mcpToken) {
       mcpClient.setToken(storage.mcpToken)
@@ -1131,6 +1173,10 @@ async function initMcpIfEnabled() {
       await chrome.storage.local.set({ mcpToken: token })
       mcpClient.setToken(token)
       logger.info(' Starting MCP client with new token...')
+    }
+    // 加载自定义服务器地址（支持远程桥接）
+    if (storage.mcpServerUrl) {
+      mcpClient.setServerUrl(storage.mcpServerUrl)
     }
     startMcpClient()
   }
@@ -1164,14 +1210,22 @@ preCheckPlatformsAuth()
 
 // 设置每日增长指标追踪
 chrome.alarms.create('daily_growth_metrics', { periodInMinutes: 24 * 60 })
+// 设置远程配置定期拉取（每 6 小时）
+chrome.alarms.create('remote_config_fetch', { periodInMinutes: 6 * 60 })
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'daily_growth_metrics') {
     trackGrowthMetrics().catch(() => {})
+  }
+  if (alarm.name === 'remote_config_fetch') {
+    fetchRemoteConfig().catch(() => {})
   }
 })
 
 // 首次启动时也追踪一次增长指标
 trackGrowthMetrics().catch(() => {})
+
+// 首次启动时拉取远程配置（带缓存检查）
+fetchConfigIfNeeded().catch(() => {})
 
 // 检查版本更新（用于 ZIP 安装用户）
 // 如有新版本，在扩展图标上显示 badge 提醒
