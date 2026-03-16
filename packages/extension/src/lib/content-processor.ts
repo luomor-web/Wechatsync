@@ -496,15 +496,45 @@ function processCodeBlocks(container: HTMLElement): void {
         return
       }
 
+      // 提取语言信息（从 class="language-xxx" 或 data-lang）
+      const lang = detectCodeLang(pre)
+
       pre.innerHTML = newHtml
       pre.removeAttribute('class')
       pre.removeAttribute('style')
       pre.removeAttribute('data-lang')
+
+      // 保留语言信息
+      if (lang) {
+        pre.setAttribute('data-lang', lang)
+        pre.className = `language-${lang}`
+      }
     } catch (e) {
       logger.error('processCodeBlocks error:', e)
     }
   })
 
+}
+
+/**
+ * 从 pre/code 元素的 class 或 data-lang 中提取语言标识
+ * 支持: class="language-js", class="lang-python", class="highlight-typescript", data-lang="go"
+ */
+function detectCodeLang(pre: Element): string | null {
+  // 检查 pre 和内部 code 元素
+  const elements = [pre, pre.querySelector('code')].filter(Boolean) as Element[]
+
+  for (const el of elements) {
+    // data-lang 属性
+    const dataLang = el.getAttribute('data-lang')
+    if (dataLang) return dataLang.trim().toLowerCase()
+
+    // class="language-xxx" / "lang-xxx" / "highlight-xxx"
+    const match = el.className.match(/(?:language|lang|highlight)-(\w+)/)
+    if (match) return match[1].toLowerCase()
+  }
+
+  return null
 }
 
 /**

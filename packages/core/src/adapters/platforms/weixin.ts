@@ -53,11 +53,12 @@ export class WeixinAdapter extends CodeAdapter {
     capabilities: ['article', 'draft', 'image_upload'],
   }
 
-  /** 预处理配置: 微信公众号使用 HTML 格式，移除非微信域名链接 */
+  /** 预处理配置: 微信公众号使用 HTML 格式，移除非微信域名链接，压缩标签间空白避免 ProseMirror 产生空节点 */
   readonly preprocessConfig = {
     outputFormat: 'html' as const,
     removeLinks: true,
     keepLinkDomains: ['mp.weixin.qq.com', 'weixin.qq.com'],
+    compactHtml: true,
   }
 
   private weixinMeta: WeixinMeta | null = null
