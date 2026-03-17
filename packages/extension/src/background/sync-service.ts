@@ -282,12 +282,15 @@ export async function performSync(
 
   // 预处理内容（与 SYNC_ARTICLE 路径一致）
   // MCP/CLI 路径没有 senderTabId，需要找一个可用 tab 做 DOM 预处理
+  // 同源平台跳过预处理（如微信到微信）
+  const sourcePlatform = (article as any).source?.platform
+  const platformsToPreprocess = dslPlatformIds.filter((id: string) => id !== sourcePlatform)
   let processedArticle: typeof normalizedArticle & { platformContents?: Record<string, { html: string; markdown: string }> } = normalizedArticle
-  if (dslPlatformIds.length > 0) {
-    const configs = getPlatformPreprocessConfigs(dslPlatformIds)
+  if (platformsToPreprocess.length > 0) {
+    const configs = getPlatformPreprocessConfigs(platformsToPreprocess)
     const rawHtml = normalizedArticle.html || normalizedArticle.content || ''
     if (rawHtml) {
-      const preprocessResult = await sendPreprocessMessage(rawHtml, dslPlatformIds, configs)
+      const preprocessResult = await sendPreprocessMessage(rawHtml, platformsToPreprocess, configs)
       if (preprocessResult) {
         processedArticle = { ...normalizedArticle, platformContents: preprocessResult }
         logger.debug('Preprocessed for platforms:', Object.keys(preprocessResult))

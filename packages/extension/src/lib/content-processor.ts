@@ -532,6 +532,10 @@ function detectCodeLang(pre: Element): string | null {
     // class="language-xxx" / "lang-xxx" / "highlight-xxx"
     const match = el.className.match(/(?:language|lang|highlight)-(\w+)/)
     if (match) return match[1].toLowerCase()
+
+    // 微信 class="code-snippet__js" 等
+    const wxMatch = el.className.match(/code-snippet__(\w+)/)
+    if (wxMatch) return wxMatch[1].toLowerCase()
   }
 
   return null
@@ -771,8 +775,8 @@ function compactHtml(container: HTMLElement): void {
       const next = node.nextSibling
       const parent = node.parentNode
 
-      // 在块级元素之间的空白可以移除
-      if (parent && parent.nodeName !== 'PRE' && parent.nodeName !== 'CODE') {
+      // 在块级元素之间的空白可以移除（跳过 pre/code 及其后代）
+      if (parent && !(parent as Element).closest?.('pre, code')) {
         if ((!prev || prev.nodeType === Node.ELEMENT_NODE) &&
             (!next || next.nodeType === Node.ELEMENT_NODE)) {
           nodesToRemove.push(node)
@@ -1077,6 +1081,9 @@ export function backupAndSimplifyCodeBlocks(root: Element = document.body): Elem
       logger.debug('[backupAndSimplifyCodeBlocks] original:', originalHTML.slice(0, 100))
       logger.debug('[backupAndSimplifyCodeBlocks] cleaned text:', cleanedText.slice(0, 100))
 
+      // 在替换 innerHTML 前检测语言（之后 data-lang/class 会丢失）
+      const lang = detectCodeLang(pre)
+
       backups.push({
         element: pre,
         originalHTML: originalHTML,
@@ -1085,6 +1092,12 @@ export function backupAndSimplifyCodeBlocks(root: Element = document.body): Elem
       // 替换为纯文本，添加标记表示已处理
       pre.innerHTML = `<code>${escapeHtml(cleanedText)}</code>`
       pre.setAttribute('data-code-simplified', 'true')
+
+      // 保留语言信息到标准格式
+      if (lang) {
+        pre.setAttribute('data-lang', lang)
+        pre.className = `language-${lang}`
+      }
     } catch (e) {
       logger.error('[backupAndSimplifyCodeBlocks] error:', e)
     }

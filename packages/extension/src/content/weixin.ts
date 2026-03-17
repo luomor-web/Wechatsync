@@ -3,8 +3,8 @@
  * FAB 按钮 → 打开 SyncDialog iframe overlay
  */
 
-import { htmlToMarkdownNative } from '@wechatsync/core'
-import { preprocessContentDOM, backupAndSimplifyCodeBlocks, restoreCodeBlocks } from '../lib/content-processor'
+import { htmlToMarkdownNative, type PreprocessConfig } from '@wechatsync/core'
+import { preprocessContentDOM, preprocessForPlatform, backupAndSimplifyCodeBlocks, restoreCodeBlocks } from '../lib/content-processor'
 import { createSyncFab } from '../lib/fab'
 
 ;(() => {
@@ -179,11 +179,28 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 })
 
-// Respond to popup's article extraction request
+// Respond to popup's article extraction request and preprocessing
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'EXTRACT_ARTICLE') {
     const article = extractWeixinArticle()
     sendResponse({ article })
+    return true
+  }
+
+  if (message.type === 'PREPROCESS_FOR_PLATFORMS') {
+    const { rawHtml, platforms, configs } = message.payload as {
+      rawHtml: string
+      platforms: string[]
+      configs: Record<string, PreprocessConfig>
+    }
+    const platformContents: Record<string, { html: string; markdown: string }> = {}
+    for (const platformId of platforms) {
+      const config = configs[platformId]
+      if (config) {
+        platformContents[platformId] = preprocessForPlatform(rawHtml, config)
+      }
+    }
+    sendResponse({ platformContents })
     return true
   }
 })

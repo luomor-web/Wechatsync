@@ -238,10 +238,13 @@ async function handleMessage(message: MessageAction, sender?: chrome.runtime.Mes
       const cmsPlatformIds = platforms.filter((id: string) => cmsAccountIds.has(id))
 
       // 如果没有 platformContents，请求 content script 预处理
+      // 同源平台跳过预处理（如微信到微信，源内容已是目标格式）
+      const sourcePlatform = article.source?.platform
+      const platformsToPreprocess = dslPlatformIds.filter((id: string) => id !== sourcePlatform)
       let processedArticle = article
-      if (!article.platformContents && dslPlatformIds.length > 0) {
+      if (!article.platformContents && platformsToPreprocess.length > 0) {
         try {
-          const configs = getPlatformPreprocessConfigs(dslPlatformIds)
+          const configs = getPlatformPreprocessConfigs(platformsToPreprocess)
           const rawHtml = article.html || article.content || ''
           if (rawHtml) {
             // 获取目标 tabId：优先使用 sender tab，否则获取当前活动标签页
@@ -254,7 +257,7 @@ async function handleMessage(message: MessageAction, sender?: chrome.runtime.Mes
             if (targetTabId) {
               const response = await chrome.tabs.sendMessage(targetTabId, {
                 type: 'PREPROCESS_FOR_PLATFORMS',
-                payload: { rawHtml, platforms: dslPlatformIds, configs },
+                payload: { rawHtml, platforms: platformsToPreprocess, configs },
               })
               if (response?.platformContents) {
                 processedArticle = { ...article, platformContents: response.platformContents }

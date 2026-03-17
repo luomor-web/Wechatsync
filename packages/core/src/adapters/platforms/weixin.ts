@@ -143,24 +143,24 @@ export class WeixinAdapter extends CodeAdapter {
         }
       }
 
-      // Use pre-processed HTML content directly
       let content = article.html || ''
 
-      content = this.processLatex(content)
-
-      // 移除外部链接（微信不允许非微信域名的链接）
-      content = this.stripExternalLinks(content)
-
-      content = await this.processImages(
-        content,
-        (src) => this.uploadImageByUrl(src),
-        {
-          skipPatterns: ['mmbiz.qpic.cn', 'mmbiz.qlogo.cn'],
-          onProgress: options?.onImageProgress,
-        }
-      )
-
-      content = this.processContent(content)
+      // 微信到微信：源内容已是微信格式，跳过所有处理直接使用
+      if (article.source?.platform === 'weixin') {
+        logger.info('Source is WeChat, skipping content processing')
+      } else {
+        content = this.processLatex(content)
+        content = this.stripExternalLinks(content)
+        content = await this.processImages(
+          content,
+          (src) => this.uploadImageByUrl(src),
+          {
+            skipPatterns: ['mmbiz.qpic.cn', 'mmbiz.qlogo.cn'],
+            onProgress: options?.onImageProgress,
+          }
+        )
+        content = this.processContent(content)
+      }
 
       const formData = new URLSearchParams({
         token: this.weixinMeta!.token,
