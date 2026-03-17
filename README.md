@@ -44,7 +44,7 @@
 
 **推荐**: [Chrome 网上应用店](https://chrome.google.com/webstore/detail/%E5%BE%AE%E4%BF%A1%E5%90%8C%E6%AD%A5%E5%8A%A9%E6%89%8B/hchobocdmclopcbnibdnoafilagadion) (自动更新)
 
-**手动安装**: 下载 [最新 Release](https://wpics.oss-cn-shanghai.aliyuncs.com/wechatsync-2.0.7.zip?date=20260310) 解压后加载到 Chrome 扩展
+**手动安装**: 下载 [最新 Release](https://wpics.oss-cn-shanghai.aliyuncs.com/wechatsync-2.0.8.zip?date=20260317) 解压后加载到 Chrome 扩展
 
 支持 Chrome / Edge / 360 / QQ 等 Chromium 内核浏览器
 
@@ -216,6 +216,13 @@ pnpm build
 然后在 Chrome 中加载 `packages/extension/dist` 目录。
 
 ## 更新日志
+
+### v2.0.8 (2026-03-17)
+
+- 🆕 新增抖音图文
+- 🆕 统一同步对话框和悬浮按钮
+- 🔧 修复 CLI 同步格式异常
+- 🔧 改善 CLI/MCP 桥接重连稳定性
 
 ### v2.0.7 (2026-03-10)
 
