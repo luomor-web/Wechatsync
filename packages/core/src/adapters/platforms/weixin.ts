@@ -143,11 +143,13 @@ export class WeixinAdapter extends CodeAdapter {
         }
       }
 
-      let content = article.html || ''
+      // 微信到微信：使用原始 HTML，跳过所有处理
+      let content = (article.source?.platform === 'weixin' && (article as any).rawHtml)
+        ? (article as any).rawHtml
+        : (article.html || '')
 
-      // 微信到微信：源内容已是微信格式，跳过所有处理直接使用
       if (article.source?.platform === 'weixin') {
-        logger.info('Source is WeChat, skipping content processing')
+        logger.info('Source is WeChat, using raw HTML, skipping content processing')
       } else {
         content = this.processLatex(content)
         content = this.stripExternalLinks(content)

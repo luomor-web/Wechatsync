@@ -216,6 +216,9 @@ function extractWeixinArticle() {
 
   if (!title || !contentEl) return null
 
+  // 保存原始 HTML（微信到微信同步时直接使用，避免代码块格式丢失）
+  const rawHtml = contentEl.innerHTML
+
   const codeBlockBackups = backupAndSimplifyCodeBlocks(contentEl)
 
   try {
@@ -230,6 +233,7 @@ function extractWeixinArticle() {
       title,
       html: htmlContent,
       content: htmlContent,
+      rawHtml,
       markdown,
       summary: summary || undefined,
       cover: cover || undefined,
