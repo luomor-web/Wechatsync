@@ -75,14 +75,16 @@
 | 慕课网 | imooc | 技术社区 | ✅ |
 | 开源中国 | oschina | 技术社区 | ✅ |
 | SegmentFault | segmentfault | 技术社区 | ✅ |
+| 博客园 | cnblogs | 技术社区 | ✅ |
 | 搜狐焦点 | sohufocus | 房产 | ✅ |
 | X (Twitter) | x | 海外 | ✅ |
 | 东方财富 | eastmoney | 财经 | ✅ |
 | 什么值得买 | smzdm | 通用 | ✅ |
 | 网易号 | netease | 通用 | ✅ |
-| WordPress | wordpress | 自建站 | ✅ |
-| Typecho | typecho | 自建站 | ✅ |
-| Markdown 压缩包 | zip-download | 下载 | ✅ |
+| WordPress | wordpress | 建站/CMS | ✅ |
+| Typecho | typecho | 建站/CMS | ✅ |
+| Hexo | zip-download | 建站/CMS | ✅ 通过 Markdown 下载 |
+| Hugo | zip-download | 建站/CMS | ✅ 通过 Markdown 下载 |
 
 - [提交新平台请求](https://airtable.com/shrLSJMnTC2BlmP29)
 
