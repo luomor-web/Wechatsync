@@ -104,7 +104,7 @@ export function SyncDialog({
                 onClick={onRetryFailed}
                 className="flex-1 py-2.5 text-sm bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
               >
-                重试失败项
+                重试失败项 ({failedCount})
               </button>
             )}
             <button
