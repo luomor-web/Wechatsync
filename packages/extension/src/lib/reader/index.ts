@@ -41,7 +41,7 @@ export interface ReaderResult {
   /** 页码 */
   pageNumber?: number
   /** 使用的提取器 */
-  extractor: 'safari-reader' | 'defuddle' | 'article-tag'
+  extractor: 'safari-reader' | 'defuddle' | 'readability' | 'article-tag'
 }
 
 /**
@@ -60,6 +60,19 @@ declare global {
     pageNumber: number
     nextPageURL(): string | null
     articleIsLTR(): boolean
+  }
+
+  class Readability {
+    constructor(doc: Document, options?: object)
+    parse(): {
+      title: string
+      content: string
+      textContent: string
+      excerpt: string
+      byline: string | null
+      siteName: string | null
+      dir: string | null
+    } | null
   }
 }
 
@@ -427,6 +440,8 @@ function extractWithDefuddle(): ReaderResult | null {
   try {
     // Defuddle 需要克隆的 document（此时代码块已是纯文本）
     const docClone = document.cloneNode(true) as Document
+    // 移除插件注入的 UI 元素（loading 遮罩、悬浮按钮、编辑器等）
+    docClone.querySelectorAll('[data-wechatsync-ui]').forEach(el => el.remove())
     const defuddle = new Defuddle(docClone, {
       // 关闭 standardize，我们有自己的代码块/KaTeX 预处理
       standardize: false,
@@ -469,6 +484,50 @@ function extractWithDefuddle(): ReaderResult | null {
 }
 
 /**
+ * 使用 Mozilla Readability 提取
+ * 需要在已做好代码块/KaTeX 预处理的页面上调用
+ */
+function extractWithReadability(): ReaderResult | null {
+  try {
+    // Readability 需要克隆的 document（此时代码块已是纯文本）
+    const docClone = document.cloneNode(true) as Document
+    docClone.querySelectorAll('[data-wechatsync-ui]').forEach(el => el.remove())
+    const reader = new Readability(docClone)
+    const article = reader.parse()
+
+    if (!article) {
+      return null
+    }
+
+    // 处理内容中的图片
+    const container = document.createElement('div')
+    container.innerHTML = article.content
+    processLazyImages(container)
+    processLinks(container)
+
+    // 获取首图
+    const firstImg = container.querySelector('img')
+    const leadingImage = firstImg?.src || undefined
+
+    return {
+      title: article.title || document.title,
+      content: container.innerHTML,
+      textContent: article.textContent,
+      excerpt: article.excerpt,
+      byline: article.byline || undefined,
+      siteName: article.siteName || undefined,
+      dir: article.dir || undefined,
+      leadingImage,
+      mainImage: leadingImage,
+      extractor: 'readability',
+    }
+  } catch (e) {
+    logger.error('Readability error:', e)
+    return null
+  }
+}
+
+/**
  * 使用 <article> 标签提取
  * 需要在已做好代码块/KaTeX 预处理的页面上调用
  */
@@ -505,7 +564,7 @@ function extractWithArticleTag(): ReaderResult | null {
 
 /**
  * 提取文章
- * Safari Reader 和 Defuddle 并行执行，根据 score 择优；<article> 标签兜底
+ * Safari Reader、Defuddle、Readability 并行执行，按 score 择优；<article> 标签兜底
  */
 export function extractArticle(): ReaderResult | null {
   // 统一做一次代码块/KaTeX 预处理
@@ -513,40 +572,32 @@ export function extractArticle(): ReaderResult | null {
   const katexBackup = backupAndReplaceKatex()
 
   try {
-    // 并行执行两个提取器
+    // 并行执行三个提取器，按 score 择优
     const safariResult = extractWithSafariReader()
     const defuddleResult = extractWithDefuddle()
+    const readabilityResult = extractWithReadability()
 
     // 恢复原始页面
     restoreKatex(katexBackup)
     restoreCodeBlocks(codeBlockBackup)
 
-    // 两者都有结果 → 比较 score
-    if (safariResult && defuddleResult) {
-      const safariScore = scoreResult(safariResult)
-      const defuddleScore = scoreResult(defuddleResult)
-      logger.debug(`Score: safari-reader=${safariScore}, defuddle=${defuddleScore}`)
+    // 收集所有有效结果，按 score 排序择优
+    const candidates: { result: ReaderResult; score: number }[] = []
+    if (safariResult) candidates.push({ result: safariResult, score: scoreResult(safariResult) })
+    if (defuddleResult) candidates.push({ result: defuddleResult, score: scoreResult(defuddleResult) })
+    if (readabilityResult) candidates.push({ result: readabilityResult, score: scoreResult(readabilityResult) })
 
-      if (safariScore >= defuddleScore) {
-        logger.debug('Winner: safari-reader')
-        return safariResult
-      } else {
-        logger.debug('Winner: defuddle')
-        return defuddleResult
-      }
+    if (candidates.length > 0) {
+      // 打印所有候选分数
+      const scoreLog = candidates.map(c => `${c.result.extractor}=${c.score}`).join(', ')
+      logger.debug(`Score: ${scoreLog}`)
+
+      candidates.sort((a, b) => b.score - a.score)
+      logger.debug(`Winner: ${candidates[0].result.extractor}`)
+      return candidates[0].result
     }
 
-    // 只有一方有结果 → 直接用
-    if (safariResult) {
-      logger.debug('Extracted with Safari ReaderArticleFinder (defuddle returned null)')
-      return safariResult
-    }
-    if (defuddleResult) {
-      logger.debug('Extracted with Defuddle (safari-reader returned null)')
-      return defuddleResult
-    }
-
-    // 两者都失败 → 兜底 <article> 标签
+    // 全部失败 → 兜底 <article> 标签
     const articleTagResult = extractWithArticleTag()
     if (articleTagResult) {
       logger.debug('Extracted with <article> tag (fallback)')
