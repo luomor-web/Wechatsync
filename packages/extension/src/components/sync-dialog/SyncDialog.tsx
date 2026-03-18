@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { ArticleCard } from './ArticleCard'
 import { PlatformList } from './PlatformList'
 import { PromoBanner } from './PromoBanner'
+import { SharePrompt } from './SharePrompt'
 import type { SyncDialogProps } from './types'
 
 /**
@@ -75,6 +76,9 @@ export function SyncDialog({
             onSelectAll={handleSelectAll}
           />
         )}
+
+        {/* Share/review prompt — after sync completed */}
+        {isCompleted && <SharePrompt />}
 
         {/* Error */}
         {error && (
