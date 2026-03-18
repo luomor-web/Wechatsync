@@ -33,12 +33,13 @@ function copyStaticFilesPlugin() {
         }
       }
 
-      // 复制 reader 脚本（避免被 vite 转换为 ES modules）
+      // 复制 Safari Reader 脚本（避免被 vite 转换为 ES modules）
+      // 注意: Readability.js 已被 defuddle 替代，不再需要复制
       const readerDir = resolve(__dirname, 'public/lib')
       const distDir = resolve(__dirname, 'dist')
 
       if (existsSync(readerDir)) {
-        const readerFiles = ['reader.js', 'Readability.js']
+        const readerFiles = ['reader.js']
         for (const file of readerFiles) {
           const srcPath = resolve(readerDir, file)
           const destPath = resolve(distDir, file)
@@ -49,7 +50,7 @@ function copyStaticFilesPlugin() {
         }
       }
 
-      // 修改输出的 manifest.json，添加 reader 脚本到 content_scripts
+      // 修改输出的 manifest.json，添加 Safari Reader 脚本到 content_scripts
       const manifestPath = resolve(__dirname, 'dist/manifest.json')
       if (existsSync(manifestPath)) {
         const manifestContent = JSON.parse(readFileSync(manifestPath, 'utf-8'))
@@ -57,7 +58,7 @@ function copyStaticFilesPlugin() {
         // 在 content_scripts 开头添加 reader 脚本
         // 不设置 world，使用默认的 ISOLATED world，与 extractor 共享全局变量
         const readerContentScript = {
-          js: ['reader.js', 'Readability.js'],
+          js: ['reader.js'],
           matches: ['http://*/*', 'https://*/*'],
           run_at: 'document_start'
         }

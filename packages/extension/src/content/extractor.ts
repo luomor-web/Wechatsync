@@ -4,9 +4,8 @@
  *
  * 提取策略:
  * 1. 特定平台提取器 (微信公众号等)
- * 2. Safari ReaderArticleFinder (通用，效果最佳)
- * 3. Mozilla Readability (通用，作为回退)
- * 4. <article> 标签 (最后手段)
+ * 2. Safari ReaderArticleFinder + Defuddle 并行竞争 (通用，择优)
+ * 3. <article> 标签 (最后手段)
  *
  * 内容格式:
  * - 在页面端使用 Turndown + 原生 DOM 将 HTML 转为 Markdown
@@ -684,7 +683,7 @@ const SITE_CONFIGS: SiteExtractConfig[] = [
     removeSelectors: ['.anchor', 'a[aria-hidden="true"]', '[data-testid]', '.octicon', '.zeroclipboard-container', '.btn-octicon'],
     unwrapHeadingSelectors: ['.markdown-heading'],
   },
-  // 飞书/Lark 使用虚拟滚动，由 extractFeishuArticle() 通过 fetch + Readability 提取
+  // 飞书/Lark 使用虚拟滚动，由 extractFeishuArticle() 通过 fetch + clientVars 解析提取
 ]
 
 function findSiteConfig(hostname: string): SiteExtractConfig | undefined {
@@ -771,7 +770,7 @@ function extractWithSiteConfig(config: SiteExtractConfig): ExtractedArticle | nu
 
 /**
  * 通用文章提取
- * 使用 Safari ReaderArticleFinder / Mozilla Readability
+ * 使用 Safari ReaderArticleFinder / Defuddle 并行竞争
  */
 function extractGenericArticle(): ExtractedArticle | null {
   // 使用统一的 Reader 提取器

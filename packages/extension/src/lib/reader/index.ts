@@ -1,12 +1,13 @@
 /**
  * 文章提取器
- * 使用 Safari ReaderArticleFinder 和 Mozilla Readability
+ * 使用 Safari ReaderArticleFinder 和 Defuddle 并行提取，择优选用
  *
- * 策略: Safari ReaderArticleFinder 优先，Readability 作为回退
+ * 策略: 两者都执行，根据 score 选最佳结果，<article> 标签作为兜底
  *
- * 注意: reader.js 和 Readability.js 通过 manifest.json 作为 content_scripts 预先加载
- * 它们会在全局作用域注入 ReaderArticleFinder 和 Readability 类
+ * 注意: reader.js 通过 manifest.json 作为 content_scripts 预先加载
+ * 它会在全局作用域注入 ReaderArticleFinder 类
  */
+import Defuddle from 'defuddle'
 import { createLogger } from '../logger'
 
 const logger = createLogger('Reader')
@@ -40,7 +41,7 @@ export interface ReaderResult {
   /** 页码 */
   pageNumber?: number
   /** 使用的提取器 */
-  extractor: 'safari-reader' | 'readability' | 'article-tag'
+  extractor: 'safari-reader' | 'defuddle' | 'article-tag'
 }
 
 /**
@@ -59,19 +60,6 @@ declare global {
     pageNumber: number
     nextPageURL(): string | null
     articleIsLTR(): boolean
-  }
-
-  class Readability {
-    constructor(doc: Document, options?: object)
-    parse(): {
-      title: string
-      content: string
-      textContent: string
-      excerpt: string
-      byline: string | null
-      siteName: string | null
-      dir: string | null
-    } | null
   }
 }
 
@@ -355,68 +343,56 @@ function restoreKatex(backups: KatexBackup[]): void {
   })
 }
 
+// ========== 评分系统 ==========
+
 /**
- * 处理容器中的 KaTeX（用于克隆后的 DOM，如 Readability）
+ * 对提取结果进行质量评分
+ * 分数越高，提取质量越好
  */
-function processKatex(container: HTMLElement): void {
-  // 处理块级公式 (.katex-display 或 .katex--display)
-  container.querySelectorAll('.katex-display, .katex--display').forEach((katexDisplay) => {
-    const latex = extractLatex(katexDisplay)
-    if (latex) {
-      const placeholder = document.createElement('div')
-      placeholder.className = 'latex-block'
-      placeholder.textContent = `$$${latex}$$`
-      katexDisplay.replaceWith(placeholder)
-    }
-  })
+function scoreResult(result: ReaderResult): number {
+  let score = 0
+  const text = result.textContent || ''
+  const html = result.content || ''
 
-  // 处理 CSDN inline 公式 (.katex--inline) - 作为整体处理
-  container.querySelectorAll('.katex--inline').forEach((katexInline) => {
-    const latex = extractLatex(katexInline)
-    if (latex) {
-      const placeholder = document.createElement('span')
-      placeholder.className = 'latex-inline'
-      placeholder.textContent = `$${latex}$`
-      katexInline.replaceWith(placeholder)
-    }
-  })
+  // 1. 内容长度 — 太短说明提取不完整，太长说明带了噪音
+  const len = text.length
+  if (len > 200) score += 20
+  if (len > 500) score += 10
+  if (len > 50000) score -= 10  // 可能带了评论/侧栏
 
-  // 处理行内公式（排除上面已处理的）
-  container.querySelectorAll('.katex:not(.katex-display .katex):not(.katex--display .katex):not(.katex--inline .katex)').forEach((katex) => {
-    const latex = extractLatex(katex)
-    if (latex) {
-      const placeholder = document.createElement('span')
-      placeholder.className = 'latex-inline'
-      placeholder.textContent = `$${latex}$`
-      katex.replaceWith(placeholder)
-    }
-  })
+  // 2. 文本密度 — text/html 比值越高，噪音越少
+  const density = html.length > 0 ? text.length / html.length : 0
+  score += Math.min(Math.round(density * 50), 30)
 
-  // 清理残留的 katex-html
-  container.querySelectorAll('.katex-html').forEach((el) => el.remove())
+  // 3. 结构化内容 — 有标题/段落/代码块说明提取质量好
+  if (/<h[1-3]/i.test(html)) score += 10
+  if (/<pre/i.test(html)) score += 5
+  if (/<img/i.test(html)) score += 5
+
+  // 4. 元数据完整度
+  if (result.title && result.title !== document.title) score += 5
+  if (result.excerpt) score += 3
+  if (result.byline) score += 2
+
+  return score
 }
+
+// ========== 提取器 ==========
 
 /**
  * 使用 Safari ReaderArticleFinder 提取
+ * 需要在已做好代码块/KaTeX 预处理的页面上调用
  */
 function extractWithSafariReader(): ReaderResult | null {
-  // 临时替换页面中的代码块和 KaTeX 为纯文本（Reader 处理后会恢复）
-  const codeBlockBackup = backupAndReplaceCodeBlocks()
-  const katexBackup = backupAndReplaceKatex()
-
   try {
     const reader = new ReaderArticleFinder(document)
 
     if (!reader.isReaderModeAvailable()) {
-      restoreKatex(katexBackup)
-      restoreCodeBlocks(codeBlockBackup)
       return null
     }
 
     const articleNode = reader.adoptableArticle(true)
     if (!articleNode) {
-      restoreKatex(katexBackup)
-      restoreCodeBlocks(codeBlockBackup)
       return null
     }
 
@@ -424,10 +400,6 @@ function extractWithSafariReader(): ReaderResult | null {
     const cloned = articleNode.cloneNode(true) as HTMLElement
     processLazyImages(cloned)
     processLinks(cloned)
-
-    // 恢复原始页面
-    restoreKatex(katexBackup)
-    restoreCodeBlocks(codeBlockBackup)
 
     return {
       title: reader.articleTitle() || document.title,
@@ -442,69 +414,63 @@ function extractWithSafariReader(): ReaderResult | null {
       extractor: 'safari-reader',
     }
   } catch (e) {
-    // 确保异常时也恢复页面
-    restoreKatex(katexBackup)
-    restoreCodeBlocks(codeBlockBackup)
     logger.error('Safari ReaderArticleFinder error:', e)
     return null
   }
 }
 
 /**
- * 使用 Mozilla Readability 提取
+ * 使用 Defuddle 提取
+ * 需要在已做好代码块/KaTeX 预处理的页面上调用
  */
-function extractWithReadability(): ReaderResult | null {
-  // 临时替换页面中的代码块和 KaTeX 为纯文本
-  const codeBlockBackup = backupAndReplaceCodeBlocks()
-  const katexBackup = backupAndReplaceKatex()
-
+function extractWithDefuddle(): ReaderResult | null {
   try {
-    // Readability 需要克隆的 document（此时代码块已是纯文本）
+    // Defuddle 需要克隆的 document（此时代码块已是纯文本）
     const docClone = document.cloneNode(true) as Document
-    const reader = new Readability(docClone)
-    const article = reader.parse()
+    const defuddle = new Defuddle(docClone, {
+      // 关闭 standardize，我们有自己的代码块/KaTeX 预处理
+      standardize: false,
+      url: window.location.href,
+    })
+    const result = defuddle.parse()
 
-    // 恢复原始页面
-    restoreKatex(katexBackup)
-    restoreCodeBlocks(codeBlockBackup)
-
-    if (!article) {
+    if (!result.content) {
       return null
     }
 
-    // 处理内容中的图片
+    // 处理内容中的图片和链接
     const container = document.createElement('div')
-    container.innerHTML = article.content
+    container.innerHTML = result.content
     processLazyImages(container)
     processLinks(container)
 
+    // 提取 textContent
+    const textContent = container.textContent || undefined
+
     // 获取首图
     const firstImg = container.querySelector('img')
-    const leadingImage = firstImg?.src || undefined
+    const leadingImage = firstImg?.src || result.image || undefined
 
     return {
-      title: article.title || document.title,
+      title: result.title || document.title,
       content: container.innerHTML,
-      textContent: article.textContent,
-      excerpt: article.excerpt,
-      byline: article.byline || undefined,
-      siteName: article.siteName || undefined,
-      dir: article.dir || undefined,
+      textContent,
+      excerpt: result.description || undefined,
+      byline: result.author || undefined,
+      siteName: result.site || undefined,
       leadingImage,
       mainImage: leadingImage,
-      extractor: 'readability',
+      extractor: 'defuddle',
     }
   } catch (e) {
-    // 确保异常时也恢复页面
-    restoreKatex(katexBackup)
-    restoreCodeBlocks(codeBlockBackup)
-    logger.error('Readability error:', e)
+    logger.error('Defuddle error:', e)
     return null
   }
 }
 
 /**
  * 使用 <article> 标签提取
+ * 需要在已做好代码块/KaTeX 预处理的页面上调用
  */
 function extractWithArticleTag(): ReaderResult | null {
   const articleEl = document.querySelector('article')
@@ -512,18 +478,10 @@ function extractWithArticleTag(): ReaderResult | null {
     return null
   }
 
-  // 临时替换页面中的代码块和 KaTeX 为纯文本
-  const codeBlockBackup = backupAndReplaceCodeBlocks()
-  const katexBackup = backupAndReplaceKatex()
-
   try {
     const cloned = articleEl.cloneNode(true) as HTMLElement
     processLazyImages(cloned)
     processLinks(cloned)
-
-    // 恢复原始页面
-    restoreKatex(katexBackup)
-    restoreCodeBlocks(codeBlockBackup)
 
     const firstImg = cloned.querySelector('img')
     const leadingImage = firstImg?.src || undefined
@@ -540,9 +498,6 @@ function extractWithArticleTag(): ReaderResult | null {
       extractor: 'article-tag',
     }
   } catch (e) {
-    // 确保异常时也恢复页面
-    restoreKatex(katexBackup)
-    restoreCodeBlocks(codeBlockBackup)
     logger.error('ArticleTag error:', e)
     return null
   }
@@ -550,32 +505,63 @@ function extractWithArticleTag(): ReaderResult | null {
 
 /**
  * 提取文章
- * 按优先级尝试: Safari Reader -> Readability -> <article> 标签
+ * Safari Reader 和 Defuddle 并行执行，根据 score 择优；<article> 标签兜底
  */
 export function extractArticle(): ReaderResult | null {
-  // 1. 尝试 Safari ReaderArticleFinder (最佳效果)
-  const safariResult = extractWithSafariReader()
-  if (safariResult) {
-    logger.debug('Extracted with Safari ReaderArticleFinder')
-    return safariResult
-  }
+  // 统一做一次代码块/KaTeX 预处理
+  const codeBlockBackup = backupAndReplaceCodeBlocks()
+  const katexBackup = backupAndReplaceKatex()
 
-  // 2. 尝试 Mozilla Readability
-  const readabilityResult = extractWithReadability()
-  if (readabilityResult) {
-    logger.debug('Extracted with Readability')
-    return readabilityResult
-  }
+  try {
+    // 并行执行两个提取器
+    const safariResult = extractWithSafariReader()
+    const defuddleResult = extractWithDefuddle()
 
-  // 3. 尝试 <article> 标签
-  const articleTagResult = extractWithArticleTag()
-  if (articleTagResult) {
-    logger.debug('Extracted with <article> tag')
-    return articleTagResult
-  }
+    // 恢复原始页面
+    restoreKatex(katexBackup)
+    restoreCodeBlocks(codeBlockBackup)
 
-  logger.debug('No article found')
-  return null
+    // 两者都有结果 → 比较 score
+    if (safariResult && defuddleResult) {
+      const safariScore = scoreResult(safariResult)
+      const defuddleScore = scoreResult(defuddleResult)
+      logger.debug(`Score: safari-reader=${safariScore}, defuddle=${defuddleScore}`)
+
+      if (safariScore >= defuddleScore) {
+        logger.debug('Winner: safari-reader')
+        return safariResult
+      } else {
+        logger.debug('Winner: defuddle')
+        return defuddleResult
+      }
+    }
+
+    // 只有一方有结果 → 直接用
+    if (safariResult) {
+      logger.debug('Extracted with Safari ReaderArticleFinder (defuddle returned null)')
+      return safariResult
+    }
+    if (defuddleResult) {
+      logger.debug('Extracted with Defuddle (safari-reader returned null)')
+      return defuddleResult
+    }
+
+    // 两者都失败 → 兜底 <article> 标签
+    const articleTagResult = extractWithArticleTag()
+    if (articleTagResult) {
+      logger.debug('Extracted with <article> tag (fallback)')
+      return articleTagResult
+    }
+
+    logger.debug('No article found')
+    return null
+  } catch (e) {
+    // 确保异常时也恢复页面
+    restoreKatex(katexBackup)
+    restoreCodeBlocks(codeBlockBackup)
+    logger.error('extractArticle error:', e)
+    return null
+  }
 }
 
 /**
@@ -592,16 +578,7 @@ export function isArticleAvailable(): boolean {
     // 忽略
   }
 
-  try {
-    // 检查 Readability
-    const docClone = document.cloneNode(true) as Document
-    const reader = new Readability(docClone)
-    if (reader.parse()) {
-      return true
-    }
-  } catch (e) {
-    // 忽略
-  }
+  // Defuddle 没有轻量级的 isAvailable 检查，跳过
 
   // 检查 <article> 标签
   return !!document.querySelector('article')
