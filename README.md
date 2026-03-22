@@ -289,12 +289,6 @@ pnpm build
 3. 打开要同步的文章页面
 4. 点击扩展图标，选择目标平台，一键同步
 
-## 作者
-
-[fun](https://fun0.netlify.app/about/) — 独立开发者，早年因热爱音乐自学 Web 开发入行。文章同步助手是 2019 年的个人项目，2025 年底在 Claude Code 加持下重新活跃开发。
-
-其他项目：[歌单助手](https://music.wechatsync.com)
-
 ## License
 
 GPL-3.0
