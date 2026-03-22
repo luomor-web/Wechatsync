@@ -74,8 +74,8 @@ export function preprocessForPlatform(rawHtml: string, config: PreprocessConfig)
     processSvgImages(container)
   }
 
-  // 移除 script 和 style（总是执行）
-  removeElements(container, ['script', 'style', 'noscript'])
+  // 移除 script 和 noscript（总是执行），style 根据配置决定
+  removeElements(container, config.keepStyles ? ['script', 'noscript'] : ['script', 'style', 'noscript'])
 
   if (config.removeLinks) {
     processLinks(container, config.keepLinkDomains)

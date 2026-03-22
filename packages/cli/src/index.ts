@@ -373,11 +373,32 @@ function parseHtml(content: string): ParsedContent {
     }
   }
 
+  // 提取 <style> 标签（可能在 <head> 中）
+  const styles: string[] = []
+  const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi
+  let styleMatch
+  while ((styleMatch = styleRegex.exec(content)) !== null) {
+    styles.push(styleMatch[0])
+  }
+
   // 提取 body 内容
   let body = content
   const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
   if (bodyMatch) {
     body = bodyMatch[1].trim()
+  }
+
+  // 将 <head> 中的 <style> 合并到 body（body 内的已经在里面了）
+  // 只添加 body 中没有的 style
+  const bodyStyles = new Set<string>()
+  const bodyStyleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi
+  let bs
+  while ((bs = bodyStyleRegex.exec(body)) !== null) {
+    bodyStyles.add(bs[0])
+  }
+  const extraStyles = styles.filter(s => !bodyStyles.has(s))
+  if (extraStyles.length > 0) {
+    body = extraStyles.join('\n') + '\n' + body
   }
 
   return {
@@ -552,7 +573,7 @@ async function createBridge(): Promise<ExtensionBridge | null> {
 
 program
   .command('sync <file>')
-  .description('同步 Markdown/HTML 文件到平台')
+  .description('同步 Markdown/HTML 文件到平台（HTML 文件可保留自定义排版样式）')
   .option('-p, --platforms <platforms>', '目标平台，逗号分隔', 'zhihu,juejin')
   .option('-t, --title <title>', '文章标题（默认从文件提取）')
   .option('--cover <url>', '封面图 URL 或本地路径')
@@ -609,7 +630,7 @@ program
     console.log(chalk.bold('同步信息:'))
     console.log(`  文件: ${chalk.cyan(path.basename(filePath))}`)
     console.log(`  标题: ${chalk.cyan(title)}`)
-    console.log(`  格式: ${chalk.cyan(parsed.format)}`)
+    console.log(`  格式: ${chalk.cyan(parsed.format)}${parsed.format === 'html' ? chalk.green(' (保留原始排版)') : ''}`)
     console.log(`  平台: ${chalk.cyan(platforms.join(', '))}`)
     console.log(`  内容: ${chalk.gray(parsed.content.length + ' 字符')}`)
     if (cover) {
@@ -853,9 +874,15 @@ program
         title: string
         content: string
         markdown?: string
-      }>('extractArticle')
+      } | null>('extractArticle')
 
       spinner.stop()
+
+      if (!article) {
+        spinner.fail('提取失败')
+        console.error(chalk.red('无法从当前页面提取文章内容，请确认当前页面包含文章'))
+        process.exit(1)
+      }
 
       if (options.output) {
         const outputPath = path.resolve(options.output)
@@ -863,6 +890,7 @@ program
         const output = `# ${article.title}\n\n${content}`
         fs.writeFileSync(outputPath, output, 'utf-8')
         console.log(chalk.green(`✓ 已保存到: ${outputPath}`))
+        console.log(chalk.gray(`  同步到平台: wechatsync sync ${options.output}`))
       } else {
         console.log()
         console.log(chalk.bold('标题:'), article.title)
@@ -870,6 +898,8 @@ program
         console.log(chalk.bold('内容预览:'))
         const preview = (article.markdown || article.content).slice(0, 500)
         console.log(chalk.gray(preview + (preview.length >= 500 ? '...' : '')))
+        console.log()
+        console.log(chalk.gray('提示: 使用 -o article.md 保存后可通过 wechatsync sync article.md 同步'))
       }
     } catch (error) {
       spinner.fail('提取失败')
@@ -889,6 +919,11 @@ if (process.argv.length <= 2) {
   console.log(`官网: ${chalk.cyan(WEBSITE_URL)}`)
   console.log()
   console.log('支持的平台: 知乎、掘金、CSDN、头条、微博、B站、简书 等 20+ 平台')
+  console.log()
+  console.log(chalk.bold('快速开始:'))
+  console.log(`  ${chalk.cyan('wechatsync sync article.md')}        同步 Markdown 文件`)
+  console.log(`  ${chalk.cyan('wechatsync sync article.html')}      同步 HTML 文件 (保留自定义排版)`)
+  console.log(`  ${chalk.cyan('wechatsync extract -o out.md')}      从浏览器提取文章`)
   console.log()
   program.outputHelp()
   process.exit(0)

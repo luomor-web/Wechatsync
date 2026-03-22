@@ -69,6 +69,9 @@ export interface PreprocessConfig {
   /** 将表格转换为文本（用 | 分隔列，适用于不支持表格的平台） */
   convertTablesToText?: boolean
 
+  /** 保留 <style> 标签（CLI 同步自定义 HTML 时使用） */
+  keepStyles?: boolean
+
   // 清理空内容
   /** 移除空行（只含 br 或空白的段落） */
   removeEmptyLines?: boolean

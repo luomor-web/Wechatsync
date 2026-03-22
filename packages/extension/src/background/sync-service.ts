@@ -288,6 +288,12 @@ export async function performSync(
   let processedArticle: typeof normalizedArticle & { platformContents?: Record<string, { html: string; markdown: string }> } = normalizedArticle
   if (platformsToPreprocess.length > 0) {
     const configs = getPlatformPreprocessConfigs(platformsToPreprocess)
+    // CLI/MCP 来源的 HTML 保留 <style> 标签（用户自定义排版）
+    if (source === 'mcp') {
+      for (const key of Object.keys(configs)) {
+        configs[key] = { ...configs[key], keepStyles: true }
+      }
+    }
     const rawHtml = normalizedArticle.html || normalizedArticle.content || ''
     if (rawHtml) {
       const preprocessResult = await sendPreprocessMessage(rawHtml, platformsToPreprocess, configs)

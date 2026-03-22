@@ -370,24 +370,34 @@ class McpClient {
       }
 
       case 'extractArticle': {
-        // 从当前活动 tab 提取文章
+        // 从当前活动 tab 提取文章（通过 content script 消息通道）
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
         if (!tabs[0]?.id) throw new Error('No active tab found')
+        const tabId = tabs[0].id
 
-        const results = await chrome.scripting.executeScript({
-          target: { tabId: tabs[0].id },
-          func: () => {
-            // 这个函数在页面上下文执行
-            // extractArticle 是全局函数（由 content script 注入）
-            const extractor = (window as any).extractArticle
-            if (typeof extractor === 'function') {
-              return extractor()
-            }
-            return null
-          },
-        })
-
-        return results[0]?.result || null
+        try {
+          const response = await chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_ARTICLE' })
+          return response?.article || null
+        } catch {
+          // content script 未加载，尝试注入后重试
+          await chrome.scripting.executeScript({
+            target: { tabId },
+            files: ['reader.js', 'Readability.js'],
+          })
+          // 注入 extractor content script
+          const manifest = chrome.runtime.getManifest()
+          const extractorScript = manifest.content_scripts
+            ?.flatMap(cs => cs.js || [])
+            .find(js => js.includes('extractor'))
+          if (extractorScript) {
+            await chrome.scripting.executeScript({
+              target: { tabId },
+              files: [extractorScript],
+            })
+          }
+          const response = await chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_ARTICLE' })
+          return response?.article || null
+        }
       }
 
       case 'uploadImage': {
