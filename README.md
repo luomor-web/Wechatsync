@@ -289,6 +289,10 @@ pnpm build
 3. 打开要同步的文章页面
 4. 点击扩展图标，选择目标平台，一键同步
 
+## Author
+
+**fun** · 独立开发者 · [GitHub](https://github.com/lljxx1) · [主页](https://fun0.netlify.app/about/)
+
 ## License
 
 GPL-3.0
