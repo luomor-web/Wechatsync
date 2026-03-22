@@ -14,6 +14,7 @@ import ora from 'ora'
 import open from 'open'
 import fs from 'fs'
 import path from 'path'
+import juice from 'juice'
 import { ExtensionBridge } from '@wechatsync/mcp-server/bridge'
 import type { PlatformInfo, SyncResult } from '@wechatsync/mcp-server/bridge'
 
@@ -286,6 +287,10 @@ interface ParsedContent {
   title: string | null
   content: string
   format: 'markdown' | 'html'
+  /** 从 HTML meta 提取的封面图 */
+  cover?: string
+  /** 从 HTML meta 提取的摘要 */
+  summary?: string
 }
 
 /**
@@ -298,7 +303,7 @@ function parseFileContent(filePath: string): ParsedContent {
   if (ext === '.md' || ext === '.markdown') {
     return parseMarkdown(content)
   } else if (ext === '.html' || ext === '.htm') {
-    return parseHtml(content)
+    return parseHtml(content, filePath)
   } else {
     // 当作纯文本处理
     return {
@@ -355,8 +360,11 @@ function parseMarkdown(content: string): ParsedContent {
 
 /**
  * 解析 HTML 文件
+ * 1. 提取标题（title > h1）、meta 信息（封面、摘要）
+ * 2. 解析本地 <link rel="stylesheet"> 引用
+ * 3. 将 <style> CSS 内联到元素的 style 属性上（juice）
  */
-function parseHtml(content: string): ParsedContent {
+function parseHtml(content: string, filePath?: string): ParsedContent {
   let title: string | null = null
 
   // 从 <title> 标签提取
@@ -373,7 +381,40 @@ function parseHtml(content: string): ParsedContent {
     }
   }
 
-  // 提取 <style> 标签（可能在 <head> 中）
+  // 从 <meta> 标签提取封面和摘要
+  let cover: string | undefined
+  let summary: string | undefined
+  const ogImageMatch = content.match(/<meta\s[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i)
+    || content.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["'][^>]*>/i)
+  if (ogImageMatch) {
+    cover = ogImageMatch[1]
+  }
+  const descMatch = content.match(/<meta\s[^>]*name=["']description["'][^>]*content=["']([^"']+)["'][^>]*>/i)
+    || content.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*name=["']description["'][^>]*>/i)
+    || content.match(/<meta\s[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["'][^>]*>/i)
+  if (descMatch) {
+    summary = (descMatch[1] || descMatch[2] || '').trim() || undefined
+  }
+
+  // 解析本地 <link rel="stylesheet"> 引用，读取并内联
+  const fileDir = filePath ? path.dirname(filePath) : undefined
+  if (fileDir) {
+    content = content.replace(
+      /<link\s[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*\/?>/gi,
+      (_match, href: string) => {
+        // 只处理本地文件，跳过 http(s) 链接
+        if (href.startsWith('http://') || href.startsWith('https://')) return _match
+        const cssPath = path.resolve(fileDir, href)
+        if (fs.existsSync(cssPath)) {
+          const css = fs.readFileSync(cssPath, 'utf-8')
+          return `<style>${css}</style>`
+        }
+        return _match
+      }
+    )
+  }
+
+  // 提取 <style> 标签（可能在 <head> 中），合并到 body
   const styles: string[] = []
   const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi
   let styleMatch
@@ -388,8 +429,7 @@ function parseHtml(content: string): ParsedContent {
     body = bodyMatch[1].trim()
   }
 
-  // 将 <head> 中的 <style> 合并到 body（body 内的已经在里面了）
-  // 只添加 body 中没有的 style
+  // 将 <head> 中的 <style> 合并到 body
   const bodyStyles = new Set<string>()
   const bodyStyleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi
   let bs
@@ -401,10 +441,25 @@ function parseHtml(content: string): ParsedContent {
     body = extraStyles.join('\n') + '\n' + body
   }
 
+  // 用 juice 将 <style> CSS 内联到元素的 style 属性
+  // 这样即使平台删除 <style> 标签，样式也能保留
+  try {
+    body = juice(body, {
+      removeStyleTags: true,
+      preserveImportant: true,
+      preserveMediaQueries: false,
+      preserveFontFaces: false,
+    })
+  } catch (e) {
+    // juice 失败不阻塞，保留原始 HTML
+  }
+
   return {
     title,
     content: body,
     format: 'html',
+    cover,
+    summary,
   }
 }
 
@@ -597,8 +652,8 @@ program
       process.exit(1)
     }
 
-    // 处理封面图
-    let cover = options.cover
+    // 处理封面图（优先使用命令行参数，回退到 HTML meta）
+    let cover = options.cover || parsed.cover
     if (cover && !cover.startsWith('http') && !cover.startsWith('data:')) {
       // 本地文件，转为 base64
       const coverPath = path.resolve(cover)
